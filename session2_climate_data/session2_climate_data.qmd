@@ -70,96 +70,80 @@ infectious disease modelling, with malaria in Thailand as the case study: from
 obtaining raw data through to a fitted statistical model that links climate to
 malaria incidence, with future projections.
 
-The session opens by framing the **research question** — always the first step of
-any modelling project — and then works through six practical parts:
+The session opens by framing the **research question** and then works through 
+six practical parts, with an extension section on fitting an SEIRS transmission 
+model:
 
-**The research question.** What we are trying to answer, and how it decides what
+**The research question.** What we are trying to answer, and how it informs what
 data and modelling we need.
 
-**Part 1 — Obtaining the data.** Where the data come from (malaria
-surveillance, climate reanalysis, future projections, administrative boundaries)
-and how to obtain them.
+**Part 1: Obtaining the data.** Where the data come from (malaria surveillance, 
+climate reanalysis, future projections, administrative boundaries) and how to 
+obtain them.
 
-**Part 2 — Malaria case data.** Reading the surveillance line list and summarising
-cases by month, province, and district.
+**Part 2: Malaria case data.** Reading the surveillance line list and 
+summarising cases by month, province, and district.
 
-**Part 3 — Environmental variables (reanalysis).** Linking gridded ERA5 climate
-data to administrative units using a shapefile, and building per-province monthly
-temperature and rainfall series.
+**Part 3: Environmental variables (reanalysis).** Linking gridded ERA5 climate
+data to administrative units using a shapefile, and building per-province 
+monthly temperature and rainfall series.
 
-**Part 4 — Future climate projections.** Summarising CMIP6 projections under two
+**Part 4: Future climate projections.** Summarising CMIP6 projections under two
 emissions scenarios (SSP1-2.6 and SSP5-8.5) for the same provinces.
 
-**Part 5 — Fitting climate to incidence.** A statistical (ARIMA/ARX panel) model
+**Part 5: Fitting climate to incidence.** A statistical (ARIMA/ARX panel) model
 relating standardised climate to changes in malaria cases across provinces.
 
-**Part 6 — Projecting future cases.** Pushing the fitted statistical model forward
-under the CMIP6 scenarios to project future cases, with the important caveats of
-long-range extrapolation.
+**Part 6: Projecting future cases.** Pushing the fitted statistical model 
+forward under the CMIP6 scenarios to project future cases, with the important 
+caveats of long-range extrapolation.
 
-**Optional — a mechanistic SEIRS alternative.** A more advanced, biologically
-structured transmission model, tucked behind an expandable box at the end for anyone
-who gets through the six parts with time to spare.
+**Optional extension: An SEIRS model.** A (basic) transmission model approach.
 
 ::: {.callout-tip}
 We recommend saving your written answers at the end of each part by printing the
 page (there is a **Print this page** button at the end of each part).
 :::
 
-This is a port of the python analysis (`python_workflow/malaria_workflow.ipynb`), 
-which we have left available for those interested.
+This is a port of the python analysis 
+(`python_workflow/malaria_workflow.ipynb`), which we have left available for 
+those interested.
 
 ---
 
 # The research question
 
 ::: speaker-note
-Start here, not with data or code. The single most common mistake in applied
-modelling is reaching for a dataset (or a method) before the question is clear.
-Spend the first few minutes establishing *what we are trying to answer* and *what
-decision it would inform*, and let that drive everything downstream. Draw out that
-the question is what tells us (a) whether climate data is even relevant, (b) which
-data we need, and (c) whether it makes sense to project forward. Participants do
-this same first step for their own work in Session 3.
+Spend the first few minutes establishing *what we are trying to answer* and 
+*what decision it would inform*. Draw out that the question is what tells us 
+(a) whether climate data is even relevant, (b) which data we need, and (c) 
+whether it makes sense to project forward. Participants do this same first step 
+for their own work in Session 3.
 :::
 
-Every modelling project begins with a clear question — not with a dataset and not
-with a method. The question determines what data we need, which modelling approach
-is appropriate, and how far we can push the results.
+It is important in modelling for the question to determine the methodology, and 
+it also informs what data we need. The data available may in turn force us to 
+update and refine our question and methodology.
 
 For this case study, our research question is:
 
-> **How do temperature and rainfall relate to malaria incidence across the
-> provinces of Thailand, and how might malaria risk change under future emissions
-> scenarios?**
+> **How do temperature and rainfall relate to malaria incidence across Thailand, 
+> and how might that incidence change under future emissions scenarios?**
 
-Reading that question tells us what we must assemble, before we touch any data:
+Reading that question tells us:
 
-- a measure of the **outcome** — malaria cases, over time and by location;
-- the **drivers** we think matter — temperature and rainfall;
-- a **spatial unit** to tie them together — provinces (the unit cases are reported
-  in);
-- a **historical period** where we observe outcome and drivers together, to *learn*
-  the relationship; and
-- **future climate** for the same region, to *apply* that relationship forward.
+- a measure of the **outcome**: malaria cases, over time and by location.
+- the **drivers** we hypothesise to matter: temperature and rainfall.
+- a **spatial region**: Thailand. The spatial resolution is often driven by 
+  data availability. In this case, we will use provinces (the unit cases are 
+  reported in).
+- a **historical period** where we observe outcome and drivers together, to \
+  *learn* the relationship. This is also often driven by data availability.
+- **future climate** for the same region, to *project* that relationship forward.
 
-That list is exactly the set of data sources we obtain in Part 1. Framing the
-question first also exposes the *ideal versus achievable* tension — the most
-biologically faithful approach may need data we cannot get — which we take up as we
-obtain the data.
+This list is the data we found available, not the initial list assembled. 
 
-**Your turn: think of a climate-sensitive health (or other) outcome in your own
-context. Write it as a one-sentence research question. What decision would a good
-answer inform?**
-
-```{=html}
-<textarea cols="127" rows="4"></textarea>
-```
-<p><br></p>
-
-**Your turn: for your question, list the pieces you would need to answer it — the
-outcome, the drivers, the spatial/temporal unit, and the historical data needed to
-link them.**
+**What data do you think is missing from this list, and why?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -171,14 +155,12 @@ link them.**
 ::: {.callout-tip collapse="true"}
 ## Notes for these prompts — click to reveal (try them first)
 
-There is no single right answer; the point is the discipline of writing the
-question *before* choosing data or methods. A good research question is specific
-about the outcome, the location/time, and the decision it informs (e.g. "where and
-when will dengue risk rise enough to warrant expanded vector control by 2050?"
-rather than "is climate bad for health?"). The list of needed pieces should always
-include the outcome measure, the candidate drivers, the unit that links them, and a
-period where both are observed together — and, if the question looks forward, a
-credible way to represent the future.
+There is no single right answer.
+
+We were initially planning on relating mosquito vector abundance to the climatic
+variables, and projecting those forward and linking to malaria incidence via a 
+transmission model tracking humans and vectors. But we couldn't find abundance 
+data in Thailand at the same period as the malaria incidence data.
 :::
 
 ---
