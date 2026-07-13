@@ -1,6 +1,6 @@
 ---
 title: "Obtaining, manipulating, and fitting climate data"
-subtitle: "Climate data in infectious disease modelling · malaria in Thailand case study — Session 2"
+subtitle: "SPARKLE Session 2 on climate data in infectious disease modelling"
 format:
   training-html: default
 presenter: "Michael & Roslyn"
@@ -8,7 +8,7 @@ contributors:
   - "Dr Vassili Kitsios"
   - "Prof. Roslyn Hickson"
   - "Dr Michael Lydeamore"
-  - "Claude (Anthropic) — assisted with the initial translation of the existing Python workflow to R Quarto; all content to be checked by the course team"
+  - "Claude (Anthropic) did the translation of the existing Python workflow to R Quarto; all content to be checked by the course team"
 ---
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
@@ -18,8 +18,7 @@ knitr::opts_chunk$set(
   message   = FALSE
 )
 
-# Path to the raw data. This points at the existing Python workflow's data
-# folder so nothing needs to be copied. Change this one line if the data moves.
+# Path to the raw data. 
 data_dir <- "../data"
 ```
 
@@ -53,22 +52,14 @@ data_dir <- "../data"
 ```
 
 ::: speaker-note
-**Status of this document.** This is an initial, direct R translation of the
-expert's Python analysis (`python_workflow/malaria_workflow.ipynb`). The analysis
-steps have been kept faithful to the original — the same data sources, the same
-processing choices, and the same models — with interactive discussion questions,
-speaker notes, and solutions layered on top for teaching. Sections that the
-course team plan to expand (download instructions, and an expanded statistical
-climate-to-incidence fit with projections) are marked with **TODO** boxes.
-
 **Environment.** The R practicals assume the following packages are installed:
 `jsonlite`, `dplyr`, `tidyr`, `lubridate`, `ggplot2`, `patchwork`, `sf`,
 `terra`, and `ncdf4`. Please confirm these are installed before the session. The
 geospatial steps (reanalysis and CMIP6) read netCDF and shapefiles directly and
-can take a little while on first render — `freeze: auto` means they are cached
+can take a little while on first render. Using `freeze: auto` caches them
 after the first successful render.
 
-**Worked example.** Throughout, the running example is malaria surveillance in
+**Worked example.** Throughout, the running example is malaria incidence in
 Thailand, linked to ERA5 reanalysis climate and CMIP6 future projections.
 :::
 
@@ -114,6 +105,9 @@ who gets through the six parts with time to spare.
 We recommend saving your written answers at the end of each part by printing the
 page (there is a **Print this page** button at the end of each part).
 :::
+
+This is a port of the python analysis (`python_workflow/malaria_workflow.ipynb`), 
+which we have left available for those interested.
 
 ---
 

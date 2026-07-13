@@ -1,6 +1,6 @@
 ---
-title: "Climate science primer"
-subtitle: "Climate data in infectious disease modelling · malaria in Thailand case study — Session 1"
+title: "Climate science primer: Physics, reanalysis, CMIP, emulators & risk assessments"
+subtitle: "SPARKLE Session 2 on climate data in infectious disease modelling"
 format:
   training-html: default
 presenter: "Dr Vassili Kitsios"
@@ -17,7 +17,7 @@ in this session.
 
 # Overview
 
-This session is a remote, slide-based introduction to the climate science that
+This session is an introduction to the climate science that
 underpins the rest of the course. It sets up the concepts and data products that
 Session 2 then uses hands-on. It covers, at a high level:
 
@@ -50,7 +50,7 @@ If the embedded viewer above does not display (some browsers block embedded PDFs
 use the download link.
 :::
 
-# Carry these into Session 2
+# Reflection questions
 
 **1.1 In your own words, what is the difference between *reanalysis* and a *climate
 projection*, and why does the malaria workflow use one to learn a relationship and

@@ -1,6 +1,6 @@
 ---
 title: "Future directions and project planning"
-subtitle: "Climate data in infectious disease modelling · malaria in Thailand case study — Session 3"
+subtitle: "SPARKLE Session 3 on climate data in infectious disease modelling"
 format:
   training-html: default
 presenter: "Michael & Roslyn"
