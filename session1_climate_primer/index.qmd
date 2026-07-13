@@ -1,0 +1,72 @@
+---
+title: "Climate science primer"
+subtitle: "Climate data in infectious disease modelling · malaria in Thailand case study — Session 1"
+format:
+  training-html: default
+presenter: "Dr Vassili Kitsios"
+contributors:
+  - Dr Vassili Kitsios
+---
+
+::: speaker-note
+Session 1 is delivered remotely as a slide-based presentation. This page exists to
+give participants a landing point: the slides, a short orientation to what the
+session covers, and a couple of prompts to carry into Session 2. There is no code
+in this session.
+:::
+
+# Overview
+
+This session is a remote, slide-based introduction to the climate science that
+underpins the rest of the course. It sets up the concepts and data products that
+Session 2 then uses hands-on. It covers, at a high level:
+
+- the physics of the climate system, and how the climate is observed and modelled;
+- **reanalysis** — how past weather is reconstructed into gridded, physically
+  consistent datasets (e.g. ERA5), which we use to *learn* climate relationships;
+- **CMIP** projections — how multi-model ensembles project future climate under
+  different emissions scenarios, which we use to *apply* those relationships;
+- **emulators** — fast approximations of expensive climate models; and
+- how these feed into **risk assessments** for climate-sensitive outcomes such as
+  malaria.
+
+# Slides
+
+The presentation slides are provided as a PDF:
+
+[📄 Climate science primer — slides (PDF)](../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf){target="_blank"}
+
+```{=html}
+<p></p>
+<iframe src="../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf"
+        width="100%" height="700px" style="border:1px solid #ccc;">
+  Your browser does not display embedded PDFs.
+  <a href="../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf">Download the slides</a>.
+</iframe>
+```
+
+::: {.callout-note}
+If the embedded viewer above does not display (some browsers block embedded PDFs),
+use the download link.
+:::
+
+# Carry these into Session 2
+
+**1.1 In your own words, what is the difference between *reanalysis* and a *climate
+projection*, and why does the malaria workflow use one to learn a relationship and
+the other to look forward?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**1.2 What does an emissions *scenario* (e.g. SSP1-2.6 vs SSP5-8.5) represent, and
+why do we look at more than one?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>

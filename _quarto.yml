@@ -1,0 +1,50 @@
+project:
+  title: "Climate data in infectious disease modelling"
+  type: website
+  render:
+    - index.qmd
+    - session1_climate_primer/index.qmd
+    - session2_climate_data/session2_climate_data.qmd
+    - session3_future_directions/index.qmd
+
+toc: true
+format:
+  html:
+    theme: cosmo
+    css: style_training.css
+    title-block-style: none
+    embed-resources: true
+    link-external-icon: true
+    link-external-newwindow: true
+    code-copy: true
+
+execute:
+  freeze: auto
+
+website:
+  navbar:
+    style: floating
+    search: true
+    logo: logo.png
+    border: true
+    background: "#4BA5AB"
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Sessions"
+        menu:
+          - text: "Session 1: Climate science primer"
+            href: session1_climate_primer/index.qmd
+          - text: "Session 2: Obtaining, manipulating & fitting climate data"
+            href: session2_climate_data/session2_climate_data.qmd
+          - text: "Session 3: Future directions & project planning"
+            href: session3_future_directions/index.qmd
+
+  page-footer:
+    left: |
+      For more information or to report issues, please contact <a href='mailto:spectrum-spark@unimelb.edu.au'>the consortia project inbox</a>. <br>
+      © July 2026 SPARKLE
+    right: |
+      SPARKLE is funded by the Australian Department of Foreign Affairs and Trade (DFAT)
+    background: "#4BA5AB"
+    foreground: "#FFFFFF"

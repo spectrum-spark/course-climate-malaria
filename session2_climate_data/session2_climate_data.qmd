@@ -1,0 +1,1616 @@
+---
+title: "Obtaining, manipulating, and fitting climate data"
+subtitle: "Climate data in infectious disease modelling · malaria in Thailand case study — Session 2"
+format:
+  training-html: default
+presenter: "Michael & Roslyn"
+contributors:
+  - "Dr Vassili Kitsios"
+  - "Prof. Roslyn Hickson"
+  - "Dr Michael Lydeamore"
+  - "Claude (Anthropic) — assisted with the initial translation of the existing Python workflow to R Quarto; all content to be checked by the course team"
+---
+
+```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(
+  fig.align = "center",
+  warning   = FALSE,
+  message   = FALSE
+)
+
+# Path to the raw data. This points at the existing Python workflow's data
+# folder so nothing needs to be copied. Change this one line if the data moves.
+data_dir <- "../data"
+```
+
+```{css, echo=FALSE}
+.speaker-note {
+    background-color: #fff8e1;
+    border-left: 4px solid #f9a825;
+    padding: 10px 14px;
+    margin: 14px 0;
+    border-radius: 3px;
+    font-size: 0.92em;
+    color: #5d4037;
+}
+.speaker-note::before {
+    content: "🗒 Facilitator note: ";
+    font-weight: bold;
+}
+.todo-note {
+    background-color: #fdecea;
+    border-left: 4px solid #d32f2f;
+    padding: 10px 14px;
+    margin: 14px 0;
+    border-radius: 3px;
+    font-size: 0.92em;
+    color: #611a15;
+}
+.todo-note::before {
+    content: "🚧 TODO (course team): ";
+    font-weight: bold;
+}
+```
+
+::: speaker-note
+**Status of this document.** This is an initial, direct R translation of the
+expert's Python analysis (`python_workflow/malaria_workflow.ipynb`). The analysis
+steps have been kept faithful to the original — the same data sources, the same
+processing choices, and the same models — with interactive discussion questions,
+speaker notes, and solutions layered on top for teaching. Sections that the
+course team plan to expand (download instructions, and an expanded statistical
+climate-to-incidence fit with projections) are marked with **TODO** boxes.
+
+**Environment.** The R practicals assume the following packages are installed:
+`jsonlite`, `dplyr`, `tidyr`, `lubridate`, `ggplot2`, `patchwork`, `sf`,
+`terra`, and `ncdf4`. Please confirm these are installed before the session. The
+geospatial steps (reanalysis and CMIP6) read netCDF and shapefiles directly and
+can take a little while on first render — `freeze: auto` means they are cached
+after the first successful render.
+
+**Worked example.** Throughout, the running example is malaria surveillance in
+Thailand, linked to ERA5 reanalysis climate and CMIP6 future projections.
+:::
+
+# Summary {.tabset .tabset-pills .tabset-fade}
+
+This session works through the practical workflow of using climate data in
+infectious disease modelling, with malaria in Thailand as the case study: from
+obtaining raw data through to a fitted statistical model that links climate to
+malaria incidence, with future projections.
+
+The session opens by framing the **research question** — always the first step of
+any modelling project — and then works through six practical parts:
+
+**The research question.** What we are trying to answer, and how it decides what
+data and modelling we need.
+
+**Part 1 — Obtaining the data.** Where the data come from (malaria
+surveillance, climate reanalysis, future projections, administrative boundaries)
+and how to obtain them.
+
+**Part 2 — Malaria case data.** Reading the surveillance line list and summarising
+cases by month, province, and district.
+
+**Part 3 — Environmental variables (reanalysis).** Linking gridded ERA5 climate
+data to administrative units using a shapefile, and building per-province monthly
+temperature and rainfall series.
+
+**Part 4 — Future climate projections.** Summarising CMIP6 projections under two
+emissions scenarios (SSP1-2.6 and SSP5-8.5) for the same provinces.
+
+**Part 5 — Fitting climate to incidence.** A statistical (ARIMA/ARX panel) model
+relating standardised climate to changes in malaria cases across provinces.
+
+**Part 6 — Projecting future cases.** Pushing the fitted statistical model forward
+under the CMIP6 scenarios to project future cases, with the important caveats of
+long-range extrapolation.
+
+**Optional — a mechanistic SEIRS alternative.** A more advanced, biologically
+structured transmission model, tucked behind an expandable box at the end for anyone
+who gets through the six parts with time to spare.
+
+::: {.callout-tip}
+We recommend saving your written answers at the end of each part by printing the
+page (there is a **Print this page** button at the end of each part).
+:::
+
+---
+
+# The research question
+
+::: speaker-note
+Start here, not with data or code. The single most common mistake in applied
+modelling is reaching for a dataset (or a method) before the question is clear.
+Spend the first few minutes establishing *what we are trying to answer* and *what
+decision it would inform*, and let that drive everything downstream. Draw out that
+the question is what tells us (a) whether climate data is even relevant, (b) which
+data we need, and (c) whether it makes sense to project forward. Participants do
+this same first step for their own work in Session 3.
+:::
+
+Every modelling project begins with a clear question — not with a dataset and not
+with a method. The question determines what data we need, which modelling approach
+is appropriate, and how far we can push the results.
+
+For this case study, our research question is:
+
+> **How do temperature and rainfall relate to malaria incidence across the
+> provinces of Thailand, and how might malaria risk change under future emissions
+> scenarios?**
+
+Reading that question tells us what we must assemble, before we touch any data:
+
+- a measure of the **outcome** — malaria cases, over time and by location;
+- the **drivers** we think matter — temperature and rainfall;
+- a **spatial unit** to tie them together — provinces (the unit cases are reported
+  in);
+- a **historical period** where we observe outcome and drivers together, to *learn*
+  the relationship; and
+- **future climate** for the same region, to *apply* that relationship forward.
+
+That list is exactly the set of data sources we obtain in Part 1. Framing the
+question first also exposes the *ideal versus achievable* tension — the most
+biologically faithful approach may need data we cannot get — which we take up as we
+obtain the data.
+
+**Your turn: think of a climate-sensitive health (or other) outcome in your own
+context. Write it as a one-sentence research question. What decision would a good
+answer inform?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**Your turn: for your question, list the pieces you would need to answer it — the
+outcome, the drivers, the spatial/temporal unit, and the historical data needed to
+link them.**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>
+
+::: {.callout-tip collapse="true"}
+## Notes for these prompts — click to reveal (try them first)
+
+There is no single right answer; the point is the discipline of writing the
+question *before* choosing data or methods. A good research question is specific
+about the outcome, the location/time, and the decision it informs (e.g. "where and
+when will dengue risk rise enough to warrant expanded vector control by 2050?"
+rather than "is climate bad for health?"). The list of needed pieces should always
+include the outcome measure, the candidate drivers, the unit that links them, and a
+period where both are observed together — and, if the question looks forward, a
+credible way to represent the future.
+:::
+
+---
+
+# **Part 1:** Obtaining the data
+
+::: speaker-note
+This part is deliberately light on code — it is about *where the data come from*
+and *why each source was chosen*. The original workflow notes are reproduced
+below. Spend a few minutes on the mosquito-data caveat (there is no recent
+mosquito data, which is why climate is used as a proxy for vector dynamics later),
+as it motivates the modelling choices in Parts 4 and 5.
+:::
+
+The workflow draws on four data sources. Three are used directly in the analysis;
+the fourth (mosquito occurrence) motivates the approach but is not currently used.
+
+**1. Malaria case data (surveillance line list).** Individual records of malaria
+blood draws in Thailand, with date, province, district, and result (*P. vivax*
+`V`, *P. falciparum* `F`, or other). Obtained from the Thai DDC malaria API:
+[https://malaria-api.ddc-malaria.org/study/2year/calendar](https://malaria-api.ddc-malaria.org/study/2year/calendar){target="_blank"}.
+Saved as `data/malaria/calendar.json`.
+
+**2. Administrative boundaries (shapefile).** Province (ADM1) boundaries for
+Thailand. Shapefiles contain polygon descriptions of boundaries (countries,
+provinces, districts) and are used to apply operations — such as a spatial average
+— to gridded data over only the region of interest. Downloaded from
+[Open Development Mekong](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"}.
+Saved under `data/shape_files/tha_admbnda_adm1_rtsd_20190221/`.
+
+**3. Climate reanalysis (ERA5).** Gridded, monthly-averaged 2 m temperature (`2t`)
+and total precipitation (`tp`) — a physically consistent reconstruction of past
+weather used here to *learn* the climate–malaria relationship. The required data
+is already curated for you; additional variables can be downloaded freely from the
+Copernicus Climate Change Service (C3S) Climate Data Store:
+[ERA5 monthly single levels](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"}.
+Saved under `data/reanalysis/monthly-averaged/`.
+
+**4. Future climate projections (CMIP6).** A multi-model ensemble of monthly
+temperature (`tas`) and precipitation (`pr`) for Thailand under two emissions
+scenarios, SSP1-2.6 and SSP5-8.5 — used to *apply* the learned relationship into
+the future. The data is curated and trimmed to the region for this tutorial;
+additional variables, scenarios, or the full globe can be downloaded freely from
+the same Climate Data Store:
+[CMIP6 projections](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"}.
+Saved under `data/cmip6/monthly-averaged/`.
+
+**On mosquito data (not currently used).** Mosquito occurrence records are
+available from GBIF
+([dataset db4211d6](https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12){target="_blank"}),
+but there are no samples after 2022, so they do not overlap the 2025–2026 malaria
+data. For now, rather than modelling mosquito populations explicitly, we relate
+malaria to environmental variables directly (the approach taken in Part 5). A
+natural extension is to obtain overlapping mosquito data, learn the influence of
+temperature on the mosquito population, then the impact of that population on
+malaria infections.
+
+::: {.callout-note}
+## Obtaining the data yourself
+The Copernicus Climate Data Store (ERA5 and CMIP6) requires a free account and,
+for bulk downloads, the CDS API (a `~/.cdsapirc` key file). Because these
+downloads need accounts/API keys and can be large, they are not run as code here —
+the curated subset needed for this tutorial is provided separately in the `data/`
+folder at the repository root.
+:::
+
+## Ideal vs achievable workflows
+
+::: speaker-note
+This is a key discussion point to raise explicitly with participants: **what you
+*want* to do is constrained by the data you can actually get.** When planning this
+example we had hoped to match local mosquito vector abundance to climate, then feed
+mosquito population estimates directly into a transmission model — the most
+biologically defensible path. No overlapping abundance data existed, so we fell
+back to a simpler, biologically less correct SEIRS model in which climate forces
+transmission directly (the optional section at the end of this session), and a
+direct statistical model of incidence (Part 5). The general principle worth landing:
+prefer to model the *known*
+climate-sensitive mechanism — the mosquito — explicitly, **wherever you have the
+data to do it**; only drop to simpler models as data availability forces you to.
+:::
+
+The right workflow is rarely the most sophisticated one — it is the most
+mechanistic model your data can actually support. For malaria, the biologically
+known climate-sensitive link is the *mosquito*: temperature and rainfall drive
+mosquito abundance, biting, and survival, which in turn drive transmission. That
+suggests three tiers of approach:
+
+| Approach | Pipeline | What it needs | Biological fidelity |
+|---|---|---|---|
+| **Ideal** (vector-explicit) | climate → mosquito abundance → transmission model → incidence | overlapping local mosquito **abundance** data *and* climate | highest |
+| **Achievable here** (climate-forced SEIRS) | climate → transmission (β forced by climate) → incidence | case data + climate | medium — climate stands in for the missing vector dynamics |
+| **Simplest** (direct statistical) | climate → incidence | case data + climate | lowest — no explicit mechanism |
+
+For this example we wanted the **ideal** path, but no mosquito abundance data
+overlapped the malaria period (see the GBIF note above), so we use the lower two
+tiers: a direct statistical model (Part 5) and a climate-forced SEIRS model (the
+optional section at the end of this session). Both skip the mosquito layer and let
+climate stand in for it. This is
+a deliberate, data-driven compromise — not the biologically preferred design — and
+it is worth being honest about that trade-off when presenting results.
+
+**1.1 Look at the four data sources above. For your own context, which of these
+would be the hardest to obtain, and why? Is there an equivalent malaria (or other
+health) surveillance dataset you could access?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**1.2 Reanalysis is used to *learn* the climate–disease relationship and CMIP6
+projections are used to *apply* it into the future. Why can we not simply use the
+future projections to learn the relationship in the first place?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>
+
+::: {.callout-tip collapse="true"}
+## Solutions for Part 1 — click to reveal (try the questions first)
+
+**1.1** No single answer. The malaria surveillance data is often the hardest to
+obtain in practice, because health data is sensitive, may require data-sharing
+agreements, and is frequently not openly available at fine spatial/temporal
+resolution. Climate reanalysis (ERA5) and CMIP6 are, by contrast, openly available
+(they just require an account and some bandwidth). The point is to get
+participants thinking about the data landscape in their own setting.
+
+**1.2** Future projections are, by construction, *projections* — they describe
+plausible futures, not observed weather, and there is no malaria data from the
+future to pair them with. We can only learn a relationship where we observe *both*
+climate and cases together, which means the historical/reanalysis period. The
+projections are then used to *apply* that learned relationship forward.
+:::
+
+---
+
+# **Part 2:** Malaria case data
+
+::: speaker-note
+This part reads the surveillance line list and aggregates it. The key teaching
+points are: (1) surveillance data are messy and unevenly reported across
+provinces and time — this is why we later restrict to provinces with enough data;
+and (2) aggregating to monthly counts per province gives us the response variable
+that we will link to climate. The code is a direct translation of the Python
+`pandas` workflow. Have participants run it and *look at* the province panels
+(question 2.2) before moving on.
+:::
+
+We start from the surveillance line list: one row per blood draw, with a date,
+province, district, and result. We read it, parse the dates, and aggregate to
+monthly counts.
+
+**Run the code below, then work through the questions underneath it.**
+
+```{r part2-read, echo=TRUE, eval=TRUE}
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(lubridate)
+library(ggplot2)
+library(patchwork)
+
+# Read the JSON line list and parse dates ---------------------------------
+df <- fromJSON(file.path(data_dir, "malaria", "calendar.json"))
+df <- df %>%
+  mutate(
+    date_daily = as.Date(as.character(blood_draw_date), format = "%Y%m%d"),
+    month      = floor_date(date_daily, "month")
+  )
+
+cat("Number of unique province names:", n_distinct(df$province_en), "\n")
+cat("Number of unique district names:", n_distinct(df$district_en), "\n")
+cat("Number of unique blood_draw_date:", n_distinct(df$blood_draw_date), "\n")
+```
+
+```{r part2-counts, echo=TRUE, eval=TRUE, fig.width=10, fig.height=6}
+# Total counts per day and per month --------------------------------------
+counts_per_day <- df %>% count(date_daily, name = "count") %>% arrange(date_daily)
+counts_per_month <- df %>% count(month, name = "count") %>% arrange(month)
+
+p_day <- ggplot(counts_per_day, aes(date_daily, count)) +
+  geom_line() +
+  labs(x = "date", y = "total daily counts") +
+  theme_bw()
+
+p_month <- ggplot(counts_per_month, aes(month, count)) +
+  geom_line() + geom_point(size = 1) +
+  labs(x = "date (monthly total, aligned to first of month)",
+       y = "total monthly counts") +
+  theme_bw()
+
+p_day / p_month
+```
+
+```{r part2-province, echo=TRUE, eval=TRUE, fig.width=11, fig.height=11}
+# Counts per province per month -------------------------------------------
+counts_prov_month <- df %>%
+  count(month, province_en, name = "Count") %>%
+  arrange(month, province_en)
+
+# Keep provinces reported in more than 12 months (enough for a seasonal signal),
+# matching the original workflow's selection.
+prov_order <- unique(counts_prov_month$province_en)
+selected_provinces <- prov_order[
+  vapply(prov_order,
+         function(p) sum(counts_prov_month$province_en == p) > 12,
+         logical(1))
+]
+cat("Selected provinces:", length(selected_provinces), "\n")
+
+counts_prov_month %>%
+  filter(province_en %in% selected_provinces) %>%
+  ggplot(aes(month, Count)) +
+  geom_line() + geom_point(size = 0.6) +
+  facet_wrap(~ province_en, scales = "free_y") +
+  labs(x = "date", y = "monthly count") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+```
+
+```{r part2-district, echo=TRUE, eval=TRUE}
+# Counts per district per month (finer spatial scale) ---------------------
+counts_dist_month <- df %>%
+  count(month, district_en, name = "Count")
+head(counts_dist_month)
+```
+
+**2.1 How many provinces are reported in the surveillance data, and how many are
+kept after the "more than 12 months" filter? Why might we want to restrict to
+provinces with a longer record before trying to relate cases to climate?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**2.2 Look at the per-province panels. Describe the seasonal pattern you see. Do
+all provinces peak at the same time of year? What might explain differences
+between provinces?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**2.3 The results column pools *P. vivax* and *P. falciparum* together. Why might
+it matter, for a climate-driven analysis, that these two species are combined?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>
+
+::: {.callout-tip collapse="true"}
+## Solutions for Part 2 — click to reveal (try the questions first)
+
+**2.1** There are many provinces in the raw data, but only those reported in more
+than 12 months are kept (a couple of dozen), and of those only the ones whose names
+match the boundary shapefile are carried forward. Restricting to provinces with a
+longer record means each province has enough months to show a seasonal signal and to
+standardise sensibly; provinces with only a handful of reported months cannot support
+a climate–seasonality analysis.
+
+**2.2** Most provinces show a seasonal rise and fall, but not all peak in the same
+month — malaria seasonality depends on local climate, elevation, land use, and
+the timing of the rains, which differ across the country. Border provinces and
+forested provinces often behave differently from central ones.
+
+**2.3** *P. vivax* and *P. falciparum* differ in incubation period, in relapse
+behaviour (vivax can relapse from liver-stage hypnozoites months later), and
+likely in their climate sensitivity. Pooling them means the fitted
+climate–malaria relationship is an average over two biologically different
+processes, which can blur or bias the signal. A species-stratified analysis is a
+natural next step.
+:::
+
+---
+
+# **Part 3:** Environmental variables (reanalysis)
+
+::: speaker-note
+This part links gridded climate to the administrative units that malaria is
+reported in. The conceptual step to draw out is the *spatial mismatch*: climate
+comes on a regular latitude–longitude grid, but cases come per province. We
+resolve it in two steps that reproduce the original Python exactly. First,
+**strict cell-centre assignment**: a grid cell belongs to the province whose polygon
+contains the cell's *centre* (a point-in-polygon test, matching the `regionmask`
+package). Second, the province's cells are averaged with the notebook's chained
+`.mean('lat').mean('lon')` — average over latitude *within each longitude column*,
+then over longitude. That second step is a subtle choice: it differs from a flat
+mean over all the province's cells for irregularly shaped provinces (see the TODO
+below — we need Vassili's rationale so we can justify it to participants).
+Participants often ask why we keep temperature in Kelvin during standardisation:
+because a constant offset (Kelvin vs Celsius) does not change a standardised
+(z-scored) series, so it only matters for the plots, where we convert to °C.
+:::
+
+Malaria is reported per province, but ERA5 climate comes on a regular grid. To
+link them, we summarise the grid to provinces in two steps that match the original
+analysis: **strict cell-centre assignment** — each grid cell is assigned to the
+province whose polygon contains the cell's centre (a point-in-polygon test with
+`sf`, matching the [`regionmask`](https://regionmask.readthedocs.io){target="_blank"}
+package) — and then a **chained latitude-then-longitude average** of those cells,
+reproducing the notebook's `.mean('lat').mean('lon')` (see the note below).
+
+::: {.todo-note}
+The provincial climate is averaged with the original workflow's chained
+`.mean('lat').mean('lon')`: average over latitude within each longitude column, then
+over longitude. For an irregularly shaped province this differs from a flat mean
+over all its cells (e.g. Uthai Thani: 295.08 K vs 294.64 K). **Ask Vassili** why
+this averaging was chosen — whether it is deliberate (some weighting rationale) or an
+xarray convention — so we can explain and justify it to participants, and decide
+whether to keep it or move to a flat or area-weighted (cos-latitude) spatial mean.
+R reproduces the notebook's choice exactly so the two implementations agree.
+:::
+
+**Run the code below, then work through the questions.**
+
+```{r part3-shape, echo=TRUE, eval=TRUE}
+library(sf)
+library(terra)
+
+# Province (ADM1) boundaries ----------------------------------------------
+shape_file <- st_read(
+  file.path(data_dir, "shape_files",
+            "tha_admbnda_adm1_rtsd_20190221",
+            "tha_admbnda_adm1_rtsd_20190221.shp"),
+  quiet = TRUE
+)
+region_names <- shape_file$ADM1_EN
+cat("Number of provinces in shapefile:", length(region_names), "\n")
+
+# The surveillance province names must match the shapefile's ADM1_EN names to be
+# mapped. Keep only the selected provinces that are present in the boundaries
+# (mirrors the original workflow, which reduces the province list to those found
+# in the shapefile). Report any that are dropped so name mismatches are visible.
+missing <- setdiff(selected_provinces, region_names)
+if (length(missing))
+  message("Provinces not matched in shapefile and dropped: ",
+          paste(missing, collapse = ", "))
+selected_provinces <- selected_provinces[selected_provinces %in% region_names]
+cat("Provinces carried forward (matched to boundaries):",
+    length(selected_provinces), "\n")
+```
+
+```{r part3-reanalysis, echo=TRUE, eval=TRUE}
+# ERA5 monthly reanalysis: 2 m temperature (2t -> t2m) and precip (tp) -----
+# One netCDF file per month; sorting the file paths puts them in time order.
+tas_files <- sort(list.files(
+  file.path(data_dir, "reanalysis", "monthly-averaged", "2t"),
+  pattern = "\\.nc$", recursive = TRUE, full.names = TRUE))
+pr_files <- sort(list.files(
+  file.path(data_dir, "reanalysis", "monthly-averaged", "tp"),
+  pattern = "\\.nc$", recursive = TRUE, full.names = TRUE))
+
+tas_r <- rast(tas_files)   # temperature, one layer per month (Kelvin)
+pr_r  <- rast(pr_files)    # total precipitation, one layer per month (metres)
+
+# Restrict to the Thailand region used in the original workflow
+region_ext <- ext(97, 108, 5, 22)
+tas_r <- crop(tas_r, region_ext)
+pr_r  <- crop(pr_r,  region_ext)
+
+# Recover the month for each layer from the filename (YYYYMMDD-...)
+month_from_file <- function(f)
+  floor_date(as.Date(sub(".*_(\\d{8})-\\d{8}\\.nc$", "\\1", basename(f)),
+                     format = "%Y%m%d"), "month")
+clim_months <- month_from_file(tas_files)
+cat("Reanalysis covers", length(clim_months), "months:",
+    format(min(clim_months)), "to", format(max(clim_months)), "\n")
+```
+
+```{r part3-maps, echo=TRUE, eval=TRUE, fig.width=11, fig.height=5}
+# Map of the time-mean temperature and rainfall over the region -----------
+tas_mean_c <- mean(tas_r) - 273.15          # Kelvin -> Celsius for display
+pr_mean    <- mean(pr_r)
+
+map_df_t <- as.data.frame(tas_mean_c, xy = TRUE); names(map_df_t)[3] <- "value"
+map_df_r <- as.data.frame(pr_mean,    xy = TRUE); names(map_df_r)[3] <- "value"
+
+m_t <- ggplot(map_df_t, aes(x, y, fill = value)) +
+  geom_raster() +
+  geom_sf(data = shape_file, fill = NA, colour = "grey30",
+          linewidth = 0.2, inherit.aes = FALSE) +
+  scale_fill_viridis_c(name = "°C") +
+  coord_sf(expand = FALSE) +
+  labs(title = "Mean temperature", x = "lon", y = "lat") +
+  theme_bw()
+
+m_r <- ggplot(map_df_r, aes(x, y, fill = value)) +
+  geom_raster() +
+  geom_sf(data = shape_file, fill = NA, colour = "grey30",
+          linewidth = 0.2, inherit.aes = FALSE) +
+  scale_fill_viridis_c(name = "m", option = "mako") +
+  coord_sf(expand = FALSE) +
+  labs(title = "Mean rainfall", x = "lon", y = "lat") +
+  theme_bw()
+
+m_t + m_r
+```
+
+```{r part3-extract, echo=TRUE, eval=TRUE}
+# Assign each grid cell to a province by STRICT CELL-CENTRE assignment --------
+# A cell belongs to the province whose polygon contains the cell's *centre*, and
+# the provincial value is the simple mean over those cells. This reproduces the
+# standard Python geospatial workflow used in the original analysis (the
+# `regionmask` package), rather than relying on the raster library's own polygon
+# extraction, whose boundary handling can differ slightly.
+grid_xy  <- terra::xyFromCell(tas_r, seq_len(terra::ncell(tas_r)))
+grid_pts <- sf::st_as_sf(as.data.frame(grid_xy), coords = c("x", "y"),
+                         crs = sf::st_crs(shape_file))
+within   <- sf::st_within(grid_pts, shape_file)          # cell centre in polygon?
+cell_region <- vapply(within,
+                      function(h) if (length(h)) h[1] else NA_integer_,
+                      integer(1))
+
+# Provincial mean for every layer (time step), reproducing the original workflow's
+# chained `ds.where(mask==k).mean('lat').mean('lon')`: average over latitude *within
+# each longitude column* first, then average those column-means over longitude. This
+# differs from a flat mean over all cells for provinces whose cells are spread
+# unevenly across columns, so we match the notebook exactly rather than approximate.
+# TODO (course team): ask Vassili why this chained average was used rather than a
+# flat or area-weighted (cos-latitude) spatial mean, so we can justify it to students.
+# The grid is shared by the reanalysis and (after resampling) the CMIP data, so the
+# same cell assignment and longitudes are reused in Part 4.
+region_means <- function(r) {
+  vals <- terra::values(r)                                # ncell x nlayer
+  lon  <- grid_xy[, 1]                                    # per-cell longitude
+  out  <- matrix(NA_real_, length(region_names), ncol(vals),
+                 dimnames = list(region_names, NULL))
+  for (k in seq_along(region_names)) {
+    sel <- which(cell_region == k)
+    if (!length(sel)) next
+    cols <- split(sel, lon[sel])                          # province cells grouped by longitude
+    col_means <- vapply(cols,                             # mean over latitude within each column
+      function(ix) colMeans(vals[ix, , drop = FALSE], na.rm = TRUE),
+      numeric(ncol(vals)))                                # nlayer x n_columns
+    out[k, ] <- rowMeans(col_means, na.rm = TRUE)         # then mean over longitude columns
+  }
+  out
+}
+
+tas_prov <- region_means(tas_r)
+pr_prov  <- region_means(pr_r)
+
+# Tidy into long tables, keeping only the selected provinces
+to_long <- function(mat, value_name) {
+  m <- as.matrix(mat)
+  rownames(m) <- region_names
+  colnames(m) <- as.character(clim_months)
+  as.data.frame(m) %>%
+    tibble::rownames_to_column("province_en") %>%
+    pivot_longer(-province_en, names_to = "month", values_to = value_name) %>%
+    mutate(month = as.Date(month))
+}
+
+clim_long <- to_long(tas_prov, "temp_k") %>%
+  left_join(to_long(pr_prov, "rain_m"), by = c("province_en", "month")) %>%
+  mutate(temp_c = temp_k - 273.15) %>%
+  filter(province_en %in% selected_provinces)
+
+head(clim_long)
+```
+
+```{r part3-series, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
+# Per-province monthly temperature and rainfall series --------------------
+ggplot(clim_long, aes(month, temp_c)) +
+  geom_line() + geom_point(size = 0.5) +
+  facet_wrap(~ province_en, scales = "free_y") +
+  labs(x = "date", y = "monthly mean temperature (°C)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+```
+
+**3.1 We averaged climate over each province. What information do we lose by
+doing this? For a large province with varied terrain, is a single provincial
+average a good summary of the climate that mosquitoes and people experience?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**3.2 Look at the per-province temperature series. How large is the within-year
+temperature range compared to the differences between provinces? Which do you
+think will be more useful for explaining malaria seasonality?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**3.3 The reanalysis only covers a couple of years here. What are the risks of
+learning a climate–malaria relationship from such a short record?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>
+
+::: {.callout-tip collapse="true"}
+## Solutions for Part 3 — click to reveal (try the questions first)
+
+**3.1** Averaging to a province discards all within-province spatial variation —
+elevation gradients, forest edges, urban vs rural. For a large or topographically
+varied province, a single average may not represent the conditions where
+transmission actually happens (often specific ecological niches), so the link to
+cases is weakened.
+
+**3.2** Typically the within-year (seasonal) temperature swing within a province is
+modest compared with, say, rainfall seasonality, and provinces differ from each
+other too. Both the seasonal cycle and the between-province contrasts carry
+information; the panel model in Part 5 uses both by standardising within province
+and pooling across provinces.
+
+**3.3** A short record risks fitting to year-specific anomalies (an unusual season,
+a one-off outbreak) rather than a stable climate–malaria relationship, and gives
+very little power to separate climate effects from other drivers. Projections built
+on such a fit should be treated as illustrative.
+:::
+
+---
+
+# **Part 4:** Future climate projections (CMIP6)
+
+::: speaker-note
+This part summarises the CMIP6 multi-model ensemble to the same provinces, under
+two scenarios. The key ideas for participants: (1) CMIP6 is an *ensemble* of many
+climate models — we summarise across models with a mean and an interquartile band,
+rather than trusting any single model; and (2) the two scenarios (SSP1-2.6 low
+emissions, SSP5-8.5 high emissions) bracket a range of plausible futures. This is
+a direct translation of the original Python, including the precipitation unit
+conversion. It is the heaviest step in the document; on a slow machine give it a
+minute, and note that `freeze: auto` caches it afterwards.
+:::
+
+The learned relationship (Part 5) is only useful if we can apply it to the future.
+CMIP6 provides projections of temperature (`tas`) and precipitation (`pr`) from
+many climate models, under different emissions scenarios. We summarise them to the
+same provinces, under two scenarios: **SSP1-2.6** (low emissions) and **SSP5-8.5**
+(high emissions).
+
+**Run the code below, then work through the questions.**
+
+```{r part4-read, echo=TRUE, eval=TRUE}
+library(ncdf4)
+
+cmip_dir <- file.path(data_dir, "cmip6", "monthly-averaged")
+cmip_files <- list(
+  ssp126_tas = "cmip6_regrided_model_ensemble.Thai_region.ssp126.tas.nc",
+  ssp585_tas = "cmip6_regrided_model_ensemble.Thai_region.ssp585.tas.nc",
+  ssp126_pr  = "cmip6_regrided_model_ensemble.Thai_region.ssp126.pr.nc",
+  ssp585_pr  = "cmip6_regrided_model_ensemble.Thai_region.ssp585.pr.nc"
+)
+
+# Read one CMIP variable as a list of per-model SpatRasters (time layers),
+# returning the models, times, and the raster grid. Dimensions are read by
+# name so the code does not depend on storage order.
+read_cmip_var <- function(path, var, from_date = NULL) {
+  nc  <- nc_open(path)
+  on.exit(nc_close(nc))
+  lon <- ncvar_get(nc, "lon"); lat <- ncvar_get(nc, "lat")
+  tim <- ncvar_get(nc, "time")
+  models <- ncvar_get(nc, "model")
+  # time units -> dates
+  tunits <- ncatt_get(nc, "time", "units")$value
+  origin <- as.Date(sub(".*since ", "", tunits))
+  dates  <- floor_date(origin + tim, "month")
+  arr <- ncvar_get(nc, var)                       # dims in file order
+  dn  <- sapply(nc$var[[var]]$dim, function(d) d$name)
+  # reorder to lon, lat, time, model
+  perm <- match(c("lon", "lat", "time", "model"), dn)
+  arr <- aperm(arr, perm)
+  # Trim to the reanalysis start onwards (as in the original workflow), so the
+  # historical fit and the future projection share the same start month.
+  if (!is.null(from_date)) {
+    keep <- dates >= from_date
+    arr  <- arr[, , keep, , drop = FALSE]
+    dates <- dates[keep]
+  }
+  list(arr = arr, lon = lon, lat = lat, dates = dates, models = models)
+}
+
+cmip_start <- min(clim_months)   # reanalysis start month
+tas126 <- read_cmip_var(file.path(cmip_dir, cmip_files$ssp126_tas), "tas", cmip_start)
+cat("CMIP6 grid:", length(tas126$lon), "lon x", length(tas126$lat), "lat;",
+    length(tas126$models), "models;", length(tas126$dates), "months\n")
+```
+
+```{r part4-summarise, echo=TRUE, eval=TRUE}
+# Build a raster template on the reanalysis grid so CMIP can be interpolated
+# onto it (matching the original workflow), then averaged per province.
+ref_grid <- tas_r[[1]]        # reanalysis grid (already cropped to region)
+
+# Interpolate a per-model, per-time CMIP array onto the reanalysis grid and
+# average over each province. Returns a tidy data frame of provincial means.
+# Build a north-up, multi-layer SpatRaster from one model's [lon, lat, time]
+# slice. Handles either coordinate ordering and treats the lon/lat values as
+# cell centres (so the extent is padded by half a cell each side).
+slice_to_rast <- function(slc, lon, lat, ref) {
+  lon_o <- order(lon); lat_o <- order(lat)          # index ascending
+  slc <- slc[lon_o, lat_o, , drop = FALSE]          # lon asc, lat asc
+  a <- aperm(slc, c(2, 1, 3))                        # -> lat x lon x time
+  a <- a[dim(a)[1]:1, , , drop = FALSE]              # flip: north (max lat) = row 1
+  r <- rast(a)                                       # 3rd dim -> layers
+  lo <- sort(lon); la <- sort(lat)
+  dx <- mean(diff(lo)); dy <- mean(diff(la))
+  ext(r) <- c(min(lo) - dx/2, max(lo) + dx/2,
+              min(la) - dy/2, max(la) + dy/2)
+  crs(r) <- crs(ref)                                 # match the reanalysis grid
+  r
+}
+
+# Interpolate every model's CMIP slice onto the reanalysis grid and average per
+# province, KEEPING the per-model detail (province x month x model). We keep the
+# per-model array because the Part 6 projection needs the model spread, not just
+# the ensemble mean.
+cmip_provincial_bymodel <- function(cv, var, ref, provinces) {
+  nm <- length(cv$models)
+  # Optional speed/debug knob: set env var CMIP_MODEL_CAP to a small integer to
+  # use only the first few models (much faster). Unset / 0 uses all models.
+  cap <- suppressWarnings(as.integer(Sys.getenv("CMIP_MODEL_CAP", "")))
+  if (!is.na(cap) && cap > 0) nm <- min(nm, cap)
+  out <- vector("list", nm)
+  for (m in seq_len(nm)) {
+    slc <- cv$arr[, , , m]                     # lon x lat x time
+    r <- slice_to_rast(slc, cv$lon, cv$lat, ref)
+    names(r) <- as.character(cv$dates)
+    if (var == "pr") r <- r * 86400 / 1000     # flux (kg m-2 s-1) -> m (as in original)
+    else             r <- r - 273.15           # Kelvin -> Celsius
+    r <- resample(r, ref, method = "bilinear") # interpolate onto reanalysis grid
+    pm <- region_means(r)                       # strict cell-centre assignment (as Part 3)
+    out[[m]] <- pm[provinces, , drop = FALSE]
+  }
+  arr3 <- simplify2array(out)                  # province x month x model
+  list(arr = arr3, dates = cv$dates, provinces = provinces)
+}
+
+# Ensemble summary (mean + interquartile band) from a per-model array.
+summarise_cmip <- function(bm, scenario, var) {
+  arr3 <- bm$arr; nt <- length(bm$dates)
+  qf <- function(p) as.vector(apply(arr3, c(1, 2), quantile, probs = p, na.rm = TRUE))
+  data.frame(
+    province_en = rep(bm$provinces, times = nt),
+    month       = rep(bm$dates, each = length(bm$provinces)),
+    scenario = scenario, variable = var,
+    mean = as.vector(apply(arr3, c(1, 2), mean, na.rm = TRUE)),
+    q25 = qf(0.25), q75 = qf(0.75)
+  )
+}
+```
+
+::: {.todo-note}
+The CMIP6 interpolation-and-averaging above is the single heaviest step and the
+part most likely to need a check on first render (it reads a 45-model ensemble and
+resamples it onto the reanalysis grid, exactly as the original Python did). If it
+is too slow for a live session, the course team may wish to pre-compute the
+provincial summaries once and cache them. It is left as a direct port here so the
+method is transparent.
+:::
+
+```{r part4-run, echo=TRUE, eval=TRUE}
+tas585 <- read_cmip_var(file.path(cmip_dir, cmip_files$ssp585_tas), "tas", cmip_start)
+pr126  <- read_cmip_var(file.path(cmip_dir, cmip_files$ssp126_pr),  "pr",  cmip_start)
+pr585  <- read_cmip_var(file.path(cmip_dir, cmip_files$ssp585_pr),  "pr",  cmip_start)
+
+# Restrict all four files to the CLIMATE MODELS they have in common, in the same
+# order (as the original workflow does). The files hold different numbers of
+# models, and the projection pairs temperature and rainfall model-by-model, so
+# they must refer to the same models in the same order.
+common_models <- sort(Reduce(intersect,
+  list(tas126$models, tas585$models, pr126$models, pr585$models)))
+align_models <- function(cv) {
+  idx <- match(common_models, cv$models)
+  cv$arr    <- cv$arr[, , , idx, drop = FALSE]
+  cv$models <- common_models
+  cv
+}
+tas126 <- align_models(tas126); tas585 <- align_models(tas585)
+pr126  <- align_models(pr126);  pr585  <- align_models(pr585)
+cat("CMIP models in common across all four files:", length(common_models), "\n")
+
+# Per-model provincial climate (kept for the Part 6 projection)
+cmip_tas <- list(
+  "SSP1-2.6" = cmip_provincial_bymodel(tas126, "tas", ref_grid, selected_provinces),
+  "SSP5-8.5" = cmip_provincial_bymodel(tas585, "tas", ref_grid, selected_provinces))
+cmip_pr <- list(
+  "SSP1-2.6" = cmip_provincial_bymodel(pr126, "pr", ref_grid, selected_provinces),
+  "SSP5-8.5" = cmip_provincial_bymodel(pr585, "pr", ref_grid, selected_provinces))
+
+# Ensemble summary for plotting
+cmip_summary <- bind_rows(
+  summarise_cmip(cmip_tas[["SSP1-2.6"]], "SSP1-2.6", "tas"),
+  summarise_cmip(cmip_tas[["SSP5-8.5"]], "SSP5-8.5", "tas"),
+  summarise_cmip(cmip_pr[["SSP1-2.6"]],  "SSP1-2.6", "pr"),
+  summarise_cmip(cmip_pr[["SSP5-8.5"]],  "SSP5-8.5", "pr")
+)
+```
+
+```{r part4-plot, echo=TRUE, eval=TRUE, fig.width=11, fig.height=8}
+# Annual means for a clearer long-range view, for one example province -----
+example_province <- selected_provinces[1]
+
+annual <- cmip_summary %>%
+  mutate(year = year(month)) %>%
+  filter(province_en == example_province) %>%
+  group_by(province_en, scenario, variable, year) %>%
+  summarise(mean = mean(mean), q25 = mean(q25), q75 = mean(q75), .groups = "drop")
+
+lab <- c(tas = "temperature (°C)", pr = "total precipitation (m)")
+
+ggplot(annual, aes(year, mean, colour = scenario, fill = scenario)) +
+  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
+  geom_line(linewidth = 0.8) +
+  facet_wrap(~ variable, scales = "free_y",
+             labeller = labeller(variable = lab)) +
+  scale_colour_manual(values = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
+  scale_fill_manual(values   = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
+  labs(x = "year", y = NULL,
+       title = paste0("CMIP6 projections for ", example_province),
+       subtitle = "Model mean (line) and interquartile range (band)") +
+  theme_bw()
+```
+
+**4.1 The projections are shown as a model mean with an interquartile band. Why do
+we show a *range* across models rather than picking the single "best" model?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**4.2 Compare the two scenarios (SSP1-2.6 and SSP5-8.5). How far apart are the
+temperature projections by the end of the century? What about rainfall — is the
+model agreement as strong?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**4.3 We are about to feed these projections into a malaria model that was fitted
+on only a couple of years of reanalysis. What assumption are we making about the
+climate–malaria relationship when we extrapolate it decades into the future?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>
+
+::: {.callout-tip collapse="true"}
+## Solutions for Part 4 — click to reveal (try the questions first)
+
+**4.1** Individual climate models disagree, especially on rainfall. The
+ensemble mean is more reliable than any single model, and the spread (here the
+interquartile band) is itself the honest expression of projection *uncertainty*.
+Picking one "best" model hides that uncertainty.
+
+**4.2** Temperature projections usually diverge clearly between the two scenarios
+by late century, with SSP5-8.5 substantially warmer, and models tend to agree on
+the direction of warming. Rainfall is far less certain: the inter-model band is
+usually wide and the scenarios may overlap, reflecting genuine disagreement about
+how precipitation will change.
+
+**4.3** We are assuming the climate–malaria relationship learned over a couple of
+recent years holds, unchanged, decades into the future — i.e. that no adaptation,
+intervention, land-use change, drug resistance, or shift in the mosquito/parasite
+system alters it. That is a strong assumption and the main caveat on any such
+projection.
+:::
+
+---
+
+# **Part 5:** Fitting climate to incidence
+
+::: speaker-note
+This is the core of the session: a statistical model relating climate to malaria
+cases across all provinces at once (a "panel" model). The design choices to draw
+out: (1) we model the *first difference* (month-to-month change) in cases rather
+than the level, and we *standardise* per province, so that provinces of very
+different sizes contribute comparably; (2) climate enters as temperature, rainfall,
+and their squares, allowing a hump-shaped (optimum) response; and (3) the fitted
+coefficients are *shared* across provinces — one climate–malaria relationship
+applied everywhere. This is a direct translation of the original "panel method"
+ordinary-least-squares fit. Frame it explicitly as the *simplest* model — one set
+of coefficients for the whole country. Part 6 then pushes it forward under CMIP6 to
+project future cases; the optional SEIRS section at the end of this session is the
+more scientifically sound alternative (per-province transmission) for those who want
+a mechanistic model.
+:::
+
+We now link climate to cases directly with a simple statistical model, pooling all
+provinces. We use a **panel method** — the same approach used to learn the impact
+of temperature and rainfall on the gross domestic product of the world's economies
+([Burke, Hsiang & Miguel, *Nature*, 2015](https://www.nature.com/articles/nature15725){target="_blank"})
+— but here applied to learn the impact of temperature and rainfall on the
+month-to-month *change* in infection count. Because these simple panel methods
+cannot account for trends, we first remove the trend by taking the first difference,
+then standardise each province by its own mean and standard deviation over time.
+Temperature and rainfall enter as themselves and squared, allowing a non-linear
+(hump-shaped) response, with one shared relationship across provinces. Because we
+model the first difference (the "integrated" step) and reconstruct the level by a
+cumulative sum, this is an **ARIMA-style** model — more precisely an autoregressive
+model with exogenous inputs (ARX), with temperature and rainfall as the exogenous
+climate drivers (hence `arx_fit` below).
+
+This is perhaps the most basic model one can build, and is designed to illustrate
+the logic of integrating the climate data. It uses a single set of coefficients for
+all provinces. In Part 6 we push this fitted model forward under the CMIP6 climate
+to project future cases. The optional SEIRS section at the end of this session is
+more scientifically sound (it has per-province transmission) and gives you a code
+base for fitting a transmission model directly.
+
+**Run the code below, then work through the questions.**
+
+```{r part5-matrices, echo=TRUE, eval=TRUE}
+# Align cases and climate on the same province x month grid ----------------
+provinces <- selected_provinces
+months    <- sort(unique(clim_long$month))
+
+# Case matrix: provinces x months, zero-filled where no cases were reported
+cases_mat <- counts_prov_month %>%
+  filter(province_en %in% provinces) %>%
+  complete(province_en = provinces, month = months, fill = list(Count = 0)) %>%
+  filter(month %in% months) %>%
+  arrange(province_en, month) %>%
+  pivot_wider(names_from = month, values_from = Count) %>%
+  tibble::column_to_rownames("province_en") %>%
+  as.matrix()
+cases_mat <- cases_mat[provinces, , drop = FALSE]
+
+# Climate matrices on the same grid
+mat_from_long <- function(var) {
+  clim_long %>%
+    select(province_en, month, all_of(var)) %>%
+    pivot_wider(names_from = month, values_from = all_of(var)) %>%
+    tibble::column_to_rownames("province_en") %>%
+    as.matrix() %>% `[`(provinces, , drop = FALSE)
+}
+clim_temp <- mat_from_long("temp_k")   # Kelvin (offset irrelevant once standardised)
+clim_rain <- mat_from_long("rain_m")
+
+cat("cases:", nrow(cases_mat), "provinces x", ncol(cases_mat), "months;",
+    "total cases =", sum(cases_mat), "\n")
+```
+
+```{r part5-standardise, echo=TRUE, eval=TRUE}
+# Standardise per province ------------------------------------------------
+# Use the population standard deviation (divide by n, not n-1) to match NumPy's
+# np.std in the original workflow. R's built-in sd() uses n-1, which would shift
+# the standardisation and change the fitted coefficients.
+popsd <- function(x) sqrt(mean((x - mean(x))^2))
+
+# Response: standardised first difference of cases, per province
+cases_fd <- cases_mat[, -1] - cases_mat[, -ncol(cases_mat)]
+fd_mean  <- rowMeans(cases_fd)
+fd_sd    <- apply(cases_fd, 1, popsd)
+z_cases_fd <- (cases_fd - fd_mean) / fd_sd
+
+# Predictors: standardised temperature and rainfall, per province
+z_temp <- (clim_temp - rowMeans(clim_temp)) / apply(clim_temp, 1, popsd)
+z_rain <- (clim_rain - rowMeans(clim_rain)) / apply(clim_rain, 1, popsd)
+```
+
+```{r part5-fit, echo=TRUE, eval=TRUE}
+# Ordinary least squares on the pooled (flattened) panel ------------------
+# Predictors are temperature, temperature^2, rainfall, rainfall^2, using the
+# months aligned with the first differences (drop the first month).
+Y <- as.vector(z_cases_fd)
+zt <- z_temp[, -1]; zr <- z_rain[, -1]
+X  <- cbind(as.vector(zt), as.vector(zt)^2, as.vector(zr), as.vector(zr)^2)
+
+# Centre (as in the original), solve, and predict
+Y_mean <- mean(Y);            Y_prime <- Y - Y_mean
+X_mean <- colMeans(X);        X_prime <- sweep(X, 2, X_mean)
+beta   <- solve(t(X_prime) %*% X_prime, t(X_prime) %*% Y_prime)
+Y_hat  <- as.vector(X_prime %*% beta) + Y_mean
+
+colnames(X) <- c("temp", "temp^2", "rain", "rain^2")
+print(round(setNames(as.vector(beta), colnames(X)), 3))
+
+# Reshape prediction back to province x month, and rebuild case counts by
+# reversing the standardisation and the first-differencing (cumulative sum).
+z_hat <- matrix(Y_hat, nrow = nrow(z_cases_fd))
+fitted_cases <- cases_mat * 0
+for (i in seq_len(nrow(cases_mat))) {
+  fitted_cases[i, 1]  <- cases_mat[i, 1]
+  fitted_cases[i, -1] <- fitted_cases[i, 1] +
+    cumsum(z_hat[i, ] * fd_sd[i] + fd_mean[i])
+}
+```
+
+```{r verify-export, echo=FALSE, message=FALSE}
+# Save this fit's actual outputs to the shared outputs/ folder, so they can be
+# compared directly against the Python notebook's saved outputs (see
+# python_workflow/compare.R). Instrumentation only — it exports the arrays already
+# computed above, it does not recompute anything.
+.odir <- file.path("..", "outputs")
+dir.create(.odir, showWarnings = FALSE, recursive = TRUE)
+jsonlite::write_json(list(
+  selected   = provinces,
+  months     = as.character(months),
+  cases_mat  = cases_mat,
+  clim_temp  = clim_temp,
+  clim_rain  = clim_rain,
+  panel_beta = as.vector(beta),
+  arx_fit    = fitted_cases
+), file.path(.odir, "r_panel.json"), matrix = "rowmajor", digits = NA)
+```
+
+```{r part5-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
+# Observed vs fitted monthly cases, per province --------------------------
+fit_long <- bind_rows(
+  as.data.frame(cases_mat) %>% tibble::rownames_to_column("province_en") %>%
+    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>%
+    mutate(series = "observed"),
+  as.data.frame(fitted_cases) %>% tibble::rownames_to_column("province_en") %>%
+    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>%
+    mutate(series = "fitted")
+) %>% mutate(month = as.Date(month))
+
+ggplot(fit_long, aes(month, cases, colour = series)) +
+  geom_line(linewidth = 0.6) +
+  facet_wrap(~ province_en, scales = "free_y") +
+  scale_colour_manual(values = c(observed = "black", fitted = "red")) +
+  labs(x = "date", y = "monthly cases",
+       title = "Observed vs panel-fitted monthly cases") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+```
+
+The fitted `beta` coefficients define the climate response. In **Part 6** we apply
+them to the future CMIP6 climate to project cases forward.
+
+**5.1 The model uses temperature, temperature², rainfall, and rainfall². What
+shape of climate–malaria relationship do the squared terms allow that a
+straight-line model could not? Why is that biologically sensible for a
+mosquito-borne disease?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**5.2 We standardised cases and climate *per province* before pooling. What would
+go wrong if we pooled the raw counts across provinces without standardising?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**5.3 Look at the observed-vs-fitted panels. Where does the model do well, and
+where does it do poorly? What might it be missing (think about what drives malaria
+besides climate)?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**5.4 To project future cases, we would apply these fitted coefficients to the
+CMIP6 climate from Part 4. List one thing you would want to check about the future
+climate values before trusting such a projection.**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>
+
+::: {.callout-tip collapse="true"}
+## Solutions for Part 5 — click to reveal (try the questions first)
+
+**5.1** The squared terms allow a *hump-shaped* (unimodal) response: cases rising
+with temperature or rainfall up to an optimum and then falling. This is
+biologically sensible because mosquito survival, biting, and parasite development
+each have thermal optima, and both drought and flushing rains can reduce breeding —
+so the response to climate is rarely monotonic.
+
+**5.2** Provinces differ enormously in population and case numbers. Pooling raw
+counts would let a few large-caseload provinces dominate the fit, and would confound
+"more cases because bigger" with "more cases because of climate". Standardising per
+province puts every province on a comparable footing so the shared coefficients
+reflect the climate relationship, not province size.
+
+**5.3** The model tends to capture the broad seasonal rise and fall but misses
+sharp peaks, sudden outbreaks, and province-specific idiosyncrasies. Malaria is
+also driven by non-climate factors — interventions (bed nets, spraying), human
+movement and importation, drug resistance, health-system reporting changes — none
+of which are in a climate-only model.
+
+**5.4** Sensible checks include: are the future climate values within the range the
+model was trained on (extrapolation beyond the training range is dangerous)? Are the
+units and standardisation applied identically to the projections? Is the seasonal
+structure of the projections realistic? Does the province averaging match?
+:::
+
+---
+
+# **Part 6:** Projecting future cases (statistical model)
+
+::: speaker-note
+This is the pay-off: we take the model fitted on the historical period (Part 5) and
+push it forward under the CMIP6 climate (Part 4) to project future cases. The
+mechanics: standardise each future climate value using the *historical*
+per-province mean and standard deviation (never re-standardise on the future data,
+or you throw away the trend you are trying to project), apply the fitted `beta`, and
+rebuild case counts. We run every climate model separately and show the ensemble
+mean and interquartile band, exactly as we did for the raw climate in Part 4.
+
+Be sure to make the key caveat explicit (see the warning box): reconstructing counts
+by cumulatively summing predicted month-to-month changes over ~75 years behaves like
+a random walk and will drift. This is a genuine limitation of projecting a
+differenced/ARX model far ahead, and a large part of *why* one might prefer a bounded
+mechanistic model (the optional SEIRS section at the end of this session) for long
+horizons. Treat the projection as illustrative of method, not as a forecast.
+:::
+
+We now push the fitted model forward. For each climate model and scenario, we
+standardise the future CMIP6 temperature and rainfall using the **historical**
+per-province mean and standard deviation (the same scaling the model was fitted
+with), apply the fitted coefficients to get the predicted month-to-month change in
+cases, and rebuild counts by cumulative sum — seeding from the last observed month.
+
+::: {.callout-warning}
+## A projection, not a forecast
+Rebuilding case counts by cumulatively summing predicted monthly *changes* over
+decades behaves like a random walk and will drift, so the absolute numbers far into
+the future should not be read literally. This is an inherent limitation of pushing a
+first-difference (ARX) model a long way forward, and is one reason a bounded
+mechanistic model (the optional SEIRS section at the end of this session) is often
+preferred for long-range projection. Use this to see *how* climate projections feed
+a fitted model, not as a prediction of future case counts.
+:::
+
+```{r part6-project, echo=TRUE, eval=TRUE}
+# Historical per-province climate scaling, in the SAME units as the CMIP arrays
+# (temperature in °C, rainfall in m). Standardising is unaffected by a constant
+# offset, so these reproduce the scaling used to fit the model in Part 5.
+temp_mean_p <- rowMeans(clim_temp) - 273.15   # clim_temp is Kelvin; CMIP tas is °C
+temp_sd_p   <- apply(clim_temp, 1, popsd)
+rain_mean_p <- rowMeans(clim_rain)
+rain_sd_p   <- apply(clim_rain, 1, popsd)
+
+last_obs <- cases_mat[, ncol(cases_mat)]      # seed the projection at the last observed month
+hist_end <- max(months)
+
+# Apply the fitted ARX model to one climate model's future climate, rebuild counts.
+project_one <- function(tas_pm, pr_pm, dates) {
+  zt <- (tas_pm - temp_mean_p) / temp_sd_p    # province x month (vectors recycle per row)
+  zr <- (pr_pm  - rain_mean_p) / rain_sd_p
+  yhat <- (zt   - X_mean[1]) * beta[1] +      # predicted standardised first-difference
+          (zt^2 - X_mean[2]) * beta[2] +
+          (zr   - X_mean[3]) * beta[3] +
+          (zr^2 - X_mean[4]) * beta[4] + Y_mean
+  dcases <- yhat * fd_sd + fd_mean            # back to case-change units, per province
+  fut <- which(dates > hist_end)             # project future months only
+  proj <- last_obs + t(apply(dcases[, fut, drop = FALSE], 1, cumsum))
+  list(proj = proj, dates = dates[fut])
+}
+
+# scenario -> array (province x future-month x model), dropping unstable models
+project_scenario <- function(scenario) {
+  tas <- cmip_tas[[scenario]]; pr <- cmip_pr[[scenario]]
+  nm  <- dim(tas$arr)[3]
+  lst <- lapply(seq_len(nm), function(m)
+    project_one(tas$arr[, , m], pr$arr[, , m], tas$dates)$proj)
+  arr  <- simplify2array(lst)                 # province x month x model
+  keep <- apply(arr, 3, function(x) all(is.finite(x)))
+  arr[, , keep, drop = FALSE]
+}
+
+fut_dates <- project_one(cmip_tas[[1]]$arr[, , 1], cmip_pr[[1]]$arr[, , 1],
+                         cmip_tas[[1]]$dates)$dates
+proj_arr  <- list("SSP1-2.6" = project_scenario("SSP1-2.6"),
+                  "SSP5-8.5" = project_scenario("SSP5-8.5"))
+```
+
+```{r part6-plot, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
+# Annual totals per province, with ensemble mean and interquartile band --------
+annual_proj <- function(arr, dates, scenario) {
+  yr <- lubridate::year(dates); years <- sort(unique(yr))
+  ap <- sapply(years, function(y)
+    apply(arr[, yr == y, , drop = FALSE], c(1, 3), sum))   # -> (province*?)...
+  ap <- array(ap, dim = c(length(provinces), dim(arr)[3], length(years)))  # prov x model x year
+  ap <- aperm(ap, c(1, 3, 2))                              # prov x year x model
+  data.frame(
+    province_en = rep(provinces, times = length(years)),
+    year = rep(years, each = length(provinces)),
+    scenario = scenario,
+    mean = as.vector(apply(ap, c(1, 2), mean)),
+    q25  = as.vector(apply(ap, c(1, 2), quantile, 0.25)),
+    q75  = as.vector(apply(ap, c(1, 2), quantile, 0.75))
+  )
+}
+
+proj_annual <- bind_rows(
+  annual_proj(proj_arr[["SSP1-2.6"]], fut_dates, "SSP1-2.6"),
+  annual_proj(proj_arr[["SSP5-8.5"]], fut_dates, "SSP5-8.5")
+)
+
+ggplot(proj_annual, aes(year, mean, colour = scenario, fill = scenario)) +
+  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
+  geom_line(linewidth = 0.6) +
+  facet_wrap(~ province_en, scales = "free_y") +
+  scale_colour_manual(values = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
+  scale_fill_manual(values   = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
+  labs(x = "year", y = "projected annual cases",
+       title = "Projected annual cases under CMIP6 (statistical/ARX model)",
+       subtitle = "Ensemble mean (line) and interquartile range (band). See caveat above.") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+```
+
+**6.1 The projection standardises the future climate using the *historical* mean and
+standard deviation, not the future data's own. Why is that essential? What would go
+wrong if we standardised the future climate on itself?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**6.2 Look at the projected trajectories and re-read the caveat. Which features of
+these plots would you trust, and which would you not? How would you describe the
+result honestly to a decision-maker?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>
+
+::: {.callout-tip collapse="true"}
+## Solutions for Part 6 — click to reveal (try the questions first)
+
+**6.1** The model was fitted on climate standardised by its *historical* mean and
+standard deviation, so the coefficients only make sense on that same scale. If we
+re-standardised the future climate on itself, we would subtract off the very warming
+(or drying/wetting) trend we are trying to project — every period would look
+"average" relative to its own era, and the projected climate signal would vanish. We
+must apply the historical scaling so that a genuinely hotter future shows up as a
+large positive standardised value.
+
+**6.2** Trust the *direction and relative* differences — e.g. that the higher-
+emissions scenario diverges from the lower one, and the ranking of provinces — more
+than the absolute case numbers, which drift because of the cumulative-sum
+reconstruction. Honest framing to a decision-maker: "this shows how a climate-driven
+statistical model *responds* to two emissions futures; the shape and the gap between
+scenarios are informative, but the absolute counts decades out are illustrative, not
+a forecast, and a mechanistic model would be needed for credible long-range numbers."
+:::
+
+---
+
+# Optional: a mechanistic SEIRS alternative
+
+::: speaker-note
+This whole section is optional and more advanced — it lives behind an expandable
+box so it does not interrupt the main flow, and so Session 3 can stay a clean group
+discussion. Run it only if the group powers through Parts 1–6 with time to spare, or
+point interested participants to it afterwards. It reuses the case and climate data
+already built above (no re-loading), fits a compartmental transmission model, and
+doubles as a **worked code base for fitting a transmission model directly**. Keep the
+optimiser budget small for a live demo — the fit is deliberately not run to
+convergence, and every number is illustrative.
+:::
+
+::: {.callout-note collapse="true"}
+## Why an SEIRS model? — optional and more advanced (click to expand)
+
+The model in Parts 5–6 is deliberately the simplest thing that works: one shared
+statistical relationship between climate and the month-to-month *change* in cases. A
+mechanistic **SEIRS** model is the more biologically structured alternative. Instead
+of regressing cases on climate, it represents the disease process itself — people
+move through Susceptible → Exposed → Infected → Recovered → Susceptible compartments
+— and lets **climate drive the transmission rate**. That buys three things the
+statistical model cannot: per-province transmission with *shared* natural-history
+parameters (so provinces borrow strength); built-in saturation and waning immunity
+(so it cannot produce the negative or runaway counts a differenced model can); and a
+template you can adapt to fit a transmission model directly to your own data. The
+cost is more assumptions and a harder fit.
+
+Each province runs an SEIRS model sharing the natural-history parameters but with a
+province- and time-varying transmission rate:
+
+$$\frac{dS}{dt} = -\beta(t) S I + \omega R \quad
+  \frac{dE}{dt} = \beta(t) S I - \sigma E \quad
+  \frac{dI}{dt} = \sigma E - \gamma I \quad
+  \frac{dR}{dt} = \gamma I - \omega R$$
+
+with $\beta_p(t) = \beta_{0,p}\exp(b_{temp}\, z_{temp}(p,t) + b_{rain}\, z_{rain}(p,t))$,
+and reported cases modelled as
+$\text{cases}_p(t) \sim \text{Poisson}(\text{scale}_p \cdot \sigma E_p(t))$, fitted by
+maximum likelihood.
+
+**Caveats — read before trusting any number.** The climate covariates stand in for
+missing mosquito data; there are no population denominators (so `scale` absorbs
+population size and reporting rate); the natural-history parameters
+($\sigma,\gamma,\omega$) are fitted freely rather than fixed to published
+vivax/falciparum biology; the two parasite species are pooled; and the optimiser uses
+a small iteration budget so it runs quickly — it is **not** run to convergence. Treat
+every output as illustrative of method, not as an estimate.
+
+**The data.** The SEIRS reuses the case matrix and per-province climate already built
+in Parts 2–3 and 5. The only difference is that it standardises climate **globally**
+(one shared scale) rather than per province, so that `b_temp`/`b_rain` are a single
+comparable climate sensitivity.
+
+```{r seirs-setup, echo=TRUE, eval=TRUE}
+# reuse cases_mat, clim_temp (Kelvin), clim_rain (m), popsd() from Part 5
+ztemp <- (clim_temp - mean(clim_temp)) / popsd(clim_temp)
+zrain <- (clim_rain - mean(clim_rain)) / popsd(clim_rain)
+cat(sprintf("SEIRS inputs: %d provinces x %d months, %.0f total cases\n",
+            nrow(cases_mat), ncol(cases_mat), sum(cases_mat)))
+```
+
+The model is built up in five small pieces below, then fitted. Read them in order.
+
+**Step 1 — the transmission dynamics (the ODE right-hand side).** This is the SEIRS
+model itself: the instantaneous rate of change of each compartment. `state` is a
+5 × n matrix — one column per province, rows S, E, I, R, and C (a running count of
+new infections) — so everything is vectorised over provinces at once.
+
+```{r seirs-rhs, echo=TRUE, eval=TRUE}
+SUBSTEPS_PER_MONTH <- 20   # RK4 sub-steps per month
+
+seirs_rhs <- function(state, beta, sigma, gamma, omega) {
+  S <- state[1, ]; E <- state[2, ]; I <- state[3, ]; R <- state[4, ]
+  rbind(-beta * S * I + omega * R,     #  dS  (lose to infection, gain from waning immunity)
+         beta * S * I - sigma * E,     #  dE  (newly infected, then become infectious)
+         sigma * E   - gamma * I,      #  dI  (become infectious, then recover)
+         gamma * I   - omega * R,      #  dR  (recover, then lose immunity)
+         sigma * E)                    #  dC  (cumulative NEW infections)
+}
+```
+
+**Step 2 — simulating it forward (fixed-step RK4).** We integrate the ODE month by
+month using a fixed-step Runge–Kutta (RK4) scheme with `SUBSTEPS_PER_MONTH` steps per
+month, for all provinces simultaneously. A burn-in lets the model settle before we
+record anything, and we reset the accumulator `C` at the start of each month so that
+`incidence` holds the new infections *within* that month.
+
+```{r seirs-sim, echo=TRUE, eval=TRUE}
+simulate_incidence <- function(beta, sigma, gamma, omega,
+                               i0 = 1e-4, e0 = 1e-4, burn_in_months = 12) {
+  n_prov <- nrow(beta); n_months <- ncol(beta); dt <- 1 / SUBSTEPS_PER_MONTH
+  state <- rbind(rep(1 - i0 - e0, n_prov), rep(e0, n_prov),
+                 rep(i0, n_prov), rep(0, n_prov), rep(0, n_prov))
+  step <- function(state, beta_m) {                    # one RK4 sub-step
+    k1 <- seirs_rhs(state,              beta_m, sigma, gamma, omega)
+    k2 <- seirs_rhs(state + 0.5*dt*k1,  beta_m, sigma, gamma, omega)
+    k3 <- seirs_rhs(state + 0.5*dt*k2,  beta_m, sigma, gamma, omega)
+    k4 <- seirs_rhs(state + dt*k3,      beta_m, sigma, gamma, omega)
+    state + (dt/6) * (k1 + 2*k2 + 2*k3 + k4)
+  }
+  if (burn_in_months > 0) {                            # settle using month-1 transmission
+    beta0_m <- beta[, 1]
+    for (b in seq_len(burn_in_months)) {
+      for (s in seq_len(SUBSTEPS_PER_MONTH)) state <- step(state, beta0_m)
+      state[5, ] <- 0
+    }
+  }
+  incidence <- matrix(0, n_prov, n_months)
+  for (m in seq_len(n_months)) {
+    state[5, ] <- 0; beta_m <- beta[, m]               # reset accumulator; use this month's beta
+    for (s in seq_len(SUBSTEPS_PER_MONTH)) state <- step(state, beta_m)
+    incidence[, m] <- state[5, ]
+    state[1:4, ] <- pmin(pmax(state[1:4, ], 0), 1)     # keep compartments in [0, 1]
+  }
+  incidence
+}
+```
+
+**Step 3 — unpacking the parameters.** The optimiser works in an unconstrained,
+log-transformed space so that rates stay positive. This turns the flat parameter
+vector back into named, natural-scale quantities: the shared natural-history rates,
+the two climate sensitivities, and the per-province baseline transmission `beta0` and
+reporting `scale`.
+
+```{r seirs-unpack, echo=TRUE, eval=TRUE}
+unpack_params <- function(params, n) {
+  list(sigma = exp(params[1]), gamma = exp(params[2]), omega = exp(params[3]),
+       b_temp = params[4], b_rain = params[5],
+       beta0 = exp(params[6:(5 + n)]), scale = exp(params[(6 + n):(5 + 2*n)]))
+}
+```
+
+**Step 4 — the likelihood.** Given a parameter vector, build the climate-forced
+transmission rate `beta_t`, simulate the incidence, and score it against the observed
+counts with a Poisson negative log-likelihood — the quantity the optimiser minimises.
+
+```{r seirs-nll, echo=TRUE, eval=TRUE}
+neg_log_lik <- function(params, cases, ztemp, zrain) {
+  n <- nrow(cases); p <- unpack_params(params, n)
+  beta_t <- p$beta0 * exp(p$b_temp * ztemp + p$b_rain * zrain)   # climate forces transmission
+  beta_t <- pmin(pmax(beta_t, 1e-6), 50)
+  incidence <- simulate_incidence(beta_t, p$sigma, p$gamma, p$omega)
+  lam <- pmax(p$scale * incidence, 1e-8)                         # expected reported cases
+  sum(lam - cases * log(lam))   # Poisson NLL (constant omitted)
+}
+```
+
+**Step 5 — sensible starting values.** A reasonable initial guess for the optimiser:
+incubation ~0.5 months, infectious ~1 month, immunity ~6 months, no climate effect to
+begin with, and per-province baselines scaled to each province's mean caseload.
+
+```{r seirs-x0, echo=TRUE, eval=TRUE}
+default_x0 <- function(cases) {
+  n <- nrow(cases)
+  c(log(1/0.5), log(1/1.0), log(1/6.0), 0, 0,      # sigma, gamma, omega, b_temp, b_rain
+    log(rep(2.5, n)),                              # beta0 (per province)
+    log(pmax(rowMeans(cases), 1) * 50))            # scale (per province)
+}
+```
+
+**Step 6 — fit.** Now minimise the negative log-likelihood with a bounded optimiser
+(`L-BFGS-B`). The `lower`/`upper` vectors keep every parameter in a biologically
+plausible range — incubation/infectious periods between ~0.05 and 3 months, immunity
+between 0.5 and 36 months, the climate sensitivities within ±2 — and `maxit` is kept
+deliberately small so it finishes quickly (raise it for a real fit).
+
+```{r seirs-fit, echo=TRUE, eval=TRUE}
+n <- nrow(cases_mat)
+x0 <- default_x0(cases_mat)
+lower <- c(log(1/3.0), log(1/3.0), log(1/36.0), -2, -2,
+           rep(log(0.05), n), rep(log(1.0),  n))
+upper <- c(log(1/0.05), log(1/0.05), log(1/0.5), 2, 2,
+           rep(log(30),   n), rep(log(1e9),  n))
+
+# maxit kept small so this runs quickly; raise it for a production fit. ndeps sets
+# the finite-difference gradient step to match SciPy's default, so this tracks the
+# notebook's fit as closely as the two L-BFGS-B implementations allow (see the note
+# in python_workflow/compare.R about why the fitted parameters are close, not exact).
+fit <- optim(x0, neg_log_lik, method = "L-BFGS-B",
+             lower = lower, upper = upper,
+             cases = cases_mat, ztemp = ztemp, zrain = zrain,
+             control = list(maxit = 200, ndeps = rep(1e-8, length(x0))))
+p <- unpack_params(fit$par, n)
+
+cat(sprintf("convergence code=%d  nll=%.1f\n", fit$convergence, fit$value))
+cat(sprintf("incubation period 1/sigma = %.2f months\n", 1/p$sigma))
+cat(sprintf("infectious period 1/gamma = %.2f months\n", 1/p$gamma))
+cat(sprintf("immunity duration 1/omega = %.2f months\n", 1/p$omega))
+cat(sprintf("climate sensitivity b_temp = %+.3f  b_rain = %+.3f\n", p$b_temp, p$b_rain))
+```
+
+**Step 7 — diagnostics.** Finally, rebuild the fitted incidence from the estimated
+parameters and compare it, province by province, against the observed monthly counts.
+
+```{r seirs-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
+beta_fit <- p$beta0 * exp(p$b_temp * ztemp + p$b_rain * zrain)
+lam_fit  <- p$scale * simulate_incidence(beta_fit, p$sigma, p$gamma, p$omega)
+
+ss_res <- sum((cases_mat - lam_fit)^2)
+ss_tot <- sum((cases_mat - mean(cases_mat))^2)
+cat(sprintf("pseudo-R2 (vs fitted lambda): %.3f\n", 1 - ss_res / ss_tot))
+
+diag_long <- bind_rows(
+  as.data.frame(cases_mat) %>% tibble::rownames_to_column("province_en") %>%
+    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>% mutate(series = "observed"),
+  as.data.frame(lam_fit) %>% `rownames<-`(rownames(cases_mat)) %>%
+    `colnames<-`(colnames(cases_mat)) %>%
+    tibble::rownames_to_column("province_en") %>%
+    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>% mutate(series = "fitted")
+) %>% mutate(month = as.Date(month))
+
+ggplot(diag_long, aes(month, cases, colour = series)) +
+  geom_line(linewidth = 0.6) +
+  facet_wrap(~ province_en, scales = "free_y") +
+  scale_colour_manual(values = c(observed = "black", fitted = "red")) +
+  labs(x = "date", y = "monthly cases",
+       title = "Observed vs SEIRS-fitted monthly cases") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+```
+
+```{r seirs-export, echo=FALSE, message=FALSE}
+# Save the fitted SEIRS outputs for the direct comparison (python_workflow/compare.R).
+.odir <- file.path("..", "outputs"); dir.create(.odir, showWarnings = FALSE, recursive = TRUE)
+jsonlite::write_json(list(
+  selected = provinces, months = as.character(months),
+  nll = fit$value,
+  sigma = p$sigma, gamma = p$gamma, omega = p$omega,
+  b_temp = p$b_temp, b_rain = p$b_rain,
+  beta0 = p$beta0, scale = p$scale,
+  lam_fit = lam_fit
+), file.path(.odir, "r_seirs.json"), matrix = "rowmajor", digits = NA, auto_unbox = TRUE)
+```
+
+**A note on identifiability.** Fitting this exact model in both R and Python is
+instructive. The two reach the *same* likelihood and predict essentially the same
+cases — per-province annual totals agree to about 0.3% — yet their fitted `beta0`
+and `scale` differ by a couple of percent. That is a textbook symptom of
+**non-identifiability**: `beta0` (baseline transmission) and `scale` (population ×
+reporting rate) trade off to set the case *level*, so the optimiser can shuffle
+magnitude between them, and the natural-history rates ($\sigma,\gamma,\omega$) are
+only weakly constrained by the data. It is concrete evidence for the warning above —
+trust the model's *predictions* and the climate sensitivities `b_temp`/`b_rain`, not
+the individual parameter values. (This is why the verification in
+`python_workflow/compare.R` checks the fitted incidence and climate coefficients, and
+treats the level parameters as illustrative.)
+
+**Discussion (SEIRS): the statistical model (Parts 5–6) and this mechanistic model
+both link climate to malaria. What can the mechanistic model tell you that the
+statistical one cannot, and vice versa? And why are the fitted natural-history
+parameters ($\sigma,\gamma,\omega$) a weakness here — how would you fix it?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+:::
+
+<p><input type="button" value="Print this page" onClick="window.print()"></p>

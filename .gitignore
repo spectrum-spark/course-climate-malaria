@@ -1,0 +1,35 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+/.quarto/
+
+# Rendered site (rebuilt locally; _freeze is committed so it builds from cache)
+/_site/
+
+# Large shared assets — the climate data AND the Session 1 slides live in /data/,
+# shared separately (not tracked in git). See Session 2, Part 1 for the original
+# sources (Copernicus CDS, Open Development Mekong, DDC malaria API). Keep a local
+# copy of /data/ to re-run the analysis; the committed _freeze/ lets the site
+# render without it.
+/data/
+
+# Python workflow artefacts — not committed for now. The updated notebook will be
+# added by the team once available (the optional Python reference for keen
+# students): drop the `.ipynb` line below (or `git add -f`).
+python_workflow/malaria_workflow.html
+python_workflow/docs/
+python_workflow/malaria_workflow.ipynb
+
+# Generated outputs — figures, CSVs and JSON. The R course writes to the top-level
+# outputs/; the Python reference writes to python_workflow/outputs/. compare.R
+# diffs the two panel JSONs.
+/outputs/
+python_workflow/outputs/
+
+# IDE config
+.idea/
+
+# macOS
+.DS_Store

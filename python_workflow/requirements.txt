@@ -1,0 +1,24 @@
+# Python dependencies for malaria_workflow.ipynb
+# (SPARKLE climate–malaria course — optional Python reference implementation).
+#
+# pip install -r requirements.txt
+#
+# Note: the geospatial packages (cartopy, geopandas, regionmask) depend on system
+# libraries (GEOS, PROJ, GDAL). If pip struggles to build them, a conda/mamba
+# environment is usually the easier route:
+#   conda install -c conda-forge numpy pandas scipy matplotlib xarray dask \
+#       netCDF4 geopandas regionmask cartopy jupyterlab
+
+numpy>=1.23
+pandas>=1.5
+scipy>=1.9
+matplotlib>=3.6
+xarray>=2023.1
+dask>=2023.1
+netCDF4>=1.6
+geopandas>=0.13
+regionmask>=0.10
+cartopy>=0.21
+
+# to open and run the notebook
+jupyterlab>=4.0
