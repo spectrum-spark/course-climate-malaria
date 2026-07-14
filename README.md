@@ -12,7 +12,7 @@ needs checking.** The statistical pipeline reproduces the expert's Python notebo
 (`python_workflow/malaria_workflow.ipynb`) to machine precision, checked
 automatically (see Verification below); the mechanistic SEIRS reproduces the same
 likelihood and predictions (its weakly-identified parameters agree to a few percent).
-What still needs review: the content and pedagogy (wording, questions, framing),
+What still needs review: the content and andragogy (wording, questions, framing),
 presenter details, and how much of the optional/advanced material to present. The
 Python notebook remains the source of truth.
 
@@ -48,8 +48,8 @@ quarto render
 ```
 
 Requires Quarto ≥ 1.7 and R with these packages:
-`jsonlite`, `dplyr`, `tidyr`, `lubridate`, `ggplot2`, `patchwork`, `sf`, `terra`,
-`ncdf4`, `tibble`. `execute: freeze: auto` caches results after the first
+`here`, `jsonlite`, `dplyr`, `tidyr`, `lubridate`, `ggplot2`, `patchwork`, `sf`,
+`terra`, `ncdf4`, `tibble`. `execute: freeze: auto` caches results after the first
 successful render.
 
 ## Verification against the Python source
@@ -109,7 +109,7 @@ with >12 months (the updated notebook no longer drops the last two).
 
 ## To do (course team)
 
-- Review all content and pedagogy (wording, questions, framing), and set presenter
+- Review all content and andragogy (wording, questions, framing), and set presenter
   names in the `.qmd` front matter.
 - Decide how much of the optional/advanced material to present: the Part 6
   statistical projection (drift caveat) and the SEIRS section (weakly identified,

@@ -15,11 +15,9 @@ contributors:
 knitr::opts_chunk$set(
   fig.align = "center",
   warning   = FALSE,
-  message   = FALSE
+  message   = FALSE,
+  results   = "hold"   # show the whole code chunk first, then all its output
 )
-
-# Path to the raw data. 
-data_dir <- "../data"
 ```
 
 ```{css, echo=FALSE}
@@ -48,6 +46,16 @@ data_dir <- "../data"
 .todo-note::before {
     content: "🚧 TODO (course team): ";
     font-weight: bold;
+}
+/* Wide printed output (e.g. glimpse, data-frame previews) scrolls sideways
+   instead of wrapping, similar to a pandas data-frame preview. */
+.cell-output-stdout pre {
+    white-space: pre;      /* do not wrap long lines */
+    overflow-x: auto;      /* scroll right instead */
+}
+/* Wide rendered tables (e.g. kable data-frame previews) scroll sideways too. */
+.cell-output-display {
+    overflow-x: auto;
 }
 ```
 
@@ -358,12 +366,16 @@ The projections are then used to *project* that learned relationship forward.
 ::: speaker-note
 This part reads the surveillance line list and aggregates it. The key teaching
 points are: 
+
 (1) surveillance data are messy and unevenly reported across provinces and time; 
 this is why we later restrict to provinces with enough data; and 
+
 (2) aggregating to monthly counts per province gives us the response variable
-that we will link to climate. The code is a direct translation of the Python
-`pandas` workflow. Have participants run it and *consider* the province panels
-(question 2.2) before moving on.
+that we will link to climate. 
+
+The code is a direct translation of the Python `pandas` workflow. Have 
+participants run it and *consider* the province panels (question 2.2) before 
+moving on.
 :::
 
 We start from the surveillance line list: one row per blood draw, with a date,
@@ -372,6 +384,7 @@ monthly counts.
 
 **Run the code below, then work through the questions underneath it.**
 
+First read in the data from the json file.
 ```{r part2-read, echo=TRUE, eval=TRUE}
 library(jsonlite)
 library(dplyr)
@@ -379,6 +392,10 @@ library(tidyr)
 library(lubridate)
 library(ggplot2)
 library(patchwork)
+library(here)
+
+# Locate the data
+data_dir <- here::here("data")
 
 # Read the JSON line list and parse dates ---------------------------------
 df <- fromJSON(file.path(data_dir, "malaria", "calendar.json"))
@@ -388,11 +405,15 @@ df <- df %>%
     month      = floor_date(date_daily, "month")
   )
 
+# Preview what we have loaded ---------------------------------------------
+knitr::kable(head(df, 5))      # the first 5 rows as a clean table in quarto
+
 cat("Number of unique province names:", n_distinct(df$province_en), "\n")
 cat("Number of unique district names:", n_distinct(df$district_en), "\n")
 cat("Number of unique blood_draw_date:", n_distinct(df$blood_draw_date), "\n")
 ```
 
+Counts for Thailand per month and per day
 ```{r part2-counts, echo=TRUE, eval=TRUE, fig.width=10, fig.height=6}
 # Total counts per day and per month --------------------------------------
 counts_per_day <- df %>% count(date_daily, name = "count") %>% arrange(date_daily)
@@ -400,26 +421,30 @@ counts_per_month <- df %>% count(month, name = "count") %>% arrange(month)
 
 p_day <- ggplot(counts_per_day, aes(date_daily, count)) +
   geom_line() +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b %Y") +
   labs(x = "date", y = "total daily counts") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 p_month <- ggplot(counts_per_month, aes(month, count)) +
   geom_line() + geom_point(size = 1) +
+  scale_x_date(date_breaks = "1 month", date_labels = "%b %Y") +
   labs(x = "date (monthly total, aligned to first of month)",
        y = "total monthly counts") +
-  theme_bw()
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-p_day / p_month
+print(p_day / p_month)
 ```
 
+Counts per province per month: since we will be building models estimating the infection counts per province per month, including the impact of the climate.
 ```{r part2-province, echo=TRUE, eval=TRUE, fig.width=11, fig.height=11}
 # Counts per province per month -------------------------------------------
 counts_prov_month <- df %>%
   count(month, province_en, name = "Count") %>%
   arrange(month, province_en)
 
-# Keep provinces reported in more than 12 months (enough for a seasonal signal),
-# matching the original workflow's selection.
+# Keep provinces with more than 12 months of reported cases 
 prov_order <- unique(counts_prov_month$province_en)
 selected_provinces <- prov_order[
   vapply(prov_order,
@@ -428,21 +453,73 @@ selected_provinces <- prov_order[
 ]
 cat("Selected provinces:", length(selected_provinces), "\n")
 
-counts_prov_month %>%
+# Facet titles: how many of the possible months each province reports ---------
+n_possible <- n_distinct(counts_prov_month$month)     # total months in the data (18)
+prov_counts <- counts_prov_month %>%
+  filter(province_en %in% selected_provinces) %>%
+  group_by(province_en) %>%
+  summarise(n_months = n_distinct(month), .groups = "drop")
+prov_lab <- setNames(
+  paste0(prov_counts$province_en, " (", prov_counts$n_months, "/", n_possible, ")"),
+  prov_counts$province_en
+)
+
+print(counts_prov_month %>%
   filter(province_en %in% selected_provinces) %>%
   ggplot(aes(month, Count)) +
   geom_line() + geom_point(size = 0.6) +
-  facet_wrap(~ province_en, scales = "free_y") +
+  facet_wrap(~ province_en, scales = "free_y",
+             labeller = labeller(province_en = prov_lab)) +
   labs(x = "date", y = "monthly count") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
-```{r part2-district, echo=TRUE, eval=TRUE}
+The natural next question is whether we could work at a finer spatial scale.
+```{r part2-district, echo=TRUE, eval=TRUE, fig.width=8, fig.height=7}
 # Counts per district per month (finer spatial scale) ---------------------
 counts_dist_month <- df %>%
   count(month, district_en, name = "Count")
-head(counts_dist_month)
+
+# Would a finer (district) scale work? 
+n_months_total <- n_distinct(df$month)                  # 18 possible months
+dist_months <- counts_dist_month %>%
+  group_by(district_en) %>%
+  summarise(n_months = n_distinct(month), .groups = "drop")
+
+cat("Districts in total:", nrow(dist_months), "\n")
+cat("Districts with >12 months of reported cases:",
+    sum(dist_months$n_months > 12), "\n")
+cat("Provinces with >12 months (from above):", length(selected_provinces), "\n")
+
+# Share of all reported cases falling in the qualifying districts vs provinces
+ok_dist <- dist_months$district_en[dist_months$n_months > 12]
+cat(sprintf("The %d qualifying districts hold %.1f%% of all reported cases\n",
+            length(ok_dist), 100 * mean(df$district_en %in% ok_dist)))
+cat(sprintf("The %d qualifying provinces hold %.1f%% of all reported cases\n",
+            length(selected_provinces), 100 * mean(df$province_en %in% selected_provinces)))
+
+# Months of reported cases per province and per district
+prov_months <- counts_prov_month %>%
+  group_by(province_en) %>%
+  summarise(n_months = n_distinct(month), .groups = "drop")
+
+months_bar <- function(d, unit_label) {
+  ggplot(d, aes(n_months)) +
+    geom_bar(fill = "steelblue") +
+    geom_vline(xintercept = 12.5, linetype = "dashed", colour = "red") +
+    scale_x_continuous(breaks = 1:n_months_total, limits = c(0.5, n_months_total + 0.5)) +
+    labs(y = paste0("number of ", unit_label)) +
+    theme_bw()
+}
+
+p_prov_freq <- months_bar(prov_months, "provinces") +
+  labs(x = NULL, title = "Provinces by number of months with reported cases")
+p_dist_freq <- months_bar(dist_months, "districts") +
+  labs(x = paste0("months with reported cases (out of ", n_months_total, ")"),
+       title = "Districts by number of months with reported cases")
+
+print(p_prov_freq / p_dist_freq)
 ```
 
 **2.1 How many provinces are reported in the surveillance data, and how many are
@@ -454,7 +531,16 @@ provinces with a longer record before trying to relate cases to climate?**
 ```
 <p><br></p>
 
-**2.2 Look at the per-province panels. Describe the seasonal pattern you see. Do
+**2.2 Why analyse at the province scale? What do we gain and lose by treating 
+the province as the spatial unit, and what would push you to a finer or coarser 
+scale?**
+
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
+
+**2.3 Look at the per-province panels. Describe the seasonal pattern you see. Do
 all provinces peak at the same time of year? What might explain differences
 between provinces?**
 
@@ -463,7 +549,7 @@ between provinces?**
 ```
 <p><br></p>
 
-**2.3 The results column pools *P. vivax* and *P. falciparum* together. Why might
+**2.4 The results column pools *P. vivax* and *P. falciparum* together. Why might
 it matter, for a climate-driven analysis, that these two species are combined?**
 
 ```{=html}
@@ -477,23 +563,35 @@ it matter, for a climate-driven analysis, that these two species are combined?**
 ## Solutions for Part 2: click to reveal (try the questions first)
 
 **2.1** There are many provinces in the raw data, but only those reported in more
-than 12 months are kept (a couple of dozen), and of those only the ones whose names
+than 12 months are kept (18 provinces kept out of 66), and of those only the ones whose names
 match the boundary shapefile are carried forward. Restricting to provinces with a
 longer record means each province has enough months to show a seasonal signal and to
 standardise sensibly; provinces with only a handful of reported months cannot support
 a climate–seasonality analysis.
 
-**2.2** Most provinces show a seasonal rise and fall, but not all peak in the same
+**2.2** The spatial unit is a trade-off between signal and sparsity, and the 
+case counts sharpen it. Going finer would likely work, with 90.8% of the malaria 
+data still included. But visualising the 37 districts that clear the ">12 
+months" rule vs the 18 provinces is more difficult. It would also spread almost 
+the same case burden across roughly twice as many units (37 districts versus 18 
+provinces), so each unit's monthly counts are smaller and noisier, and 303 of 
+the 340 districts are too sparse to use at all. The province scale captures 
+nearly all cases (97.5%) in the fewest robust units, and so it is a pragmatic 
+choice. Going finer would suit a focused analysis of the high-burden districts; 
+going coarser (national) would give complete series but average over very d
+ifferent climates and malaria regimes,likely washing out the signal.
+
+**2.3** Most provinces show a seasonal rise and fall, but not all peak in the same
 month; malaria seasonality depends on local climate, elevation, land use, and
 the timing of the rains, which differ across the country. Border provinces and
 forested provinces often behave differently from central ones.
 
-**2.3** *P. vivax* and *P. falciparum* differ in incubation period, in relapse
+**2.4** *P. vivax* and *P. falciparum* differ in incubation period, in relapse
 behaviour (vivax can relapse from liver-stage hypnozoites months later), and
-likely in their climate sensitivity. Pooling them means the fitted
-climate–malaria relationship is an average over two biologically different
-processes, which can blur or bias the signal. A species-stratified analysis is a
-natural next step.
+likely in their climate sensitivity. But they have similar mosquito vectors. So
+whether or not pooling them means blurring the climate-malaria signal depends on
+how climate-related those factors are, and whether the mosquito relationship 
+with climate would dominate. A potential future direction to explore. 
 :::
 
 ---
@@ -689,17 +787,17 @@ clim_long <- to_long(tas_prov, "temp_k") %>%
   mutate(temp_c = temp_k - 273.15) %>%
   filter(province_en %in% selected_provinces)
 
-head(clim_long)
+print(head(clim_long))
 ```
 
 ```{r part3-series, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
 # Per-province monthly temperature and rainfall series --------------------
-ggplot(clim_long, aes(month, temp_c)) +
+print(ggplot(clim_long, aes(month, temp_c)) +
   geom_line() + geom_point(size = 0.5) +
   facet_wrap(~ province_en, scales = "free_y") +
   labs(x = "date", y = "monthly mean temperature (°C)") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
 **3.1 We averaged climate over each province. What information do we lose by
@@ -941,7 +1039,7 @@ annual <- cmip_summary %>%
 
 lab <- c(tas = "temperature (°C)", pr = "total precipitation (m)")
 
-ggplot(annual, aes(year, mean, colour = scenario, fill = scenario)) +
+print(ggplot(annual, aes(year, mean, colour = scenario, fill = scenario)) +
   geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
   geom_line(linewidth = 0.8) +
   facet_wrap(~ variable, scales = "free_y",
@@ -951,7 +1049,7 @@ ggplot(annual, aes(year, mean, colour = scenario, fill = scenario)) +
   labs(x = "year", y = NULL,
        title = paste0("CMIP6 projections for ", example_province),
        subtitle = "Model mean (line) and interquartile range (band)") +
-  theme_bw()
+  theme_bw())
 ```
 
 **4.1 The projections are shown as a model mean with an interquartile band. Why do
@@ -1153,14 +1251,14 @@ fit_long <- bind_rows(
     mutate(series = "fitted")
 ) %>% mutate(month = as.Date(month))
 
-ggplot(fit_long, aes(month, cases, colour = series)) +
+print(ggplot(fit_long, aes(month, cases, colour = series)) +
   geom_line(linewidth = 0.6) +
   facet_wrap(~ province_en, scales = "free_y") +
   scale_colour_manual(values = c(observed = "black", fitted = "red")) +
   labs(x = "date", y = "monthly cases",
        title = "Observed vs panel-fitted monthly cases") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
 The fitted `beta` coefficients define the climate response. In **Part 6** we apply
@@ -1335,7 +1433,7 @@ proj_annual <- bind_rows(
   annual_proj(proj_arr[["SSP5-8.5"]], fut_dates, "SSP5-8.5")
 )
 
-ggplot(proj_annual, aes(year, mean, colour = scenario, fill = scenario)) +
+print(ggplot(proj_annual, aes(year, mean, colour = scenario, fill = scenario)) +
   geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
   geom_line(linewidth = 0.6) +
   facet_wrap(~ province_en, scales = "free_y") +
@@ -1345,7 +1443,7 @@ ggplot(proj_annual, aes(year, mean, colour = scenario, fill = scenario)) +
        title = "Projected annual cases under CMIP6 (statistical/ARX model)",
        subtitle = "Ensemble mean (line) and interquartile range (band). See caveat above.") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
 **6.1 The projection standardises the future climate using the *historical* mean and
@@ -1602,14 +1700,14 @@ diag_long <- bind_rows(
     pivot_longer(-province_en, names_to = "month", values_to = "cases") %>% mutate(series = "fitted")
 ) %>% mutate(month = as.Date(month))
 
-ggplot(diag_long, aes(month, cases, colour = series)) +
+print(ggplot(diag_long, aes(month, cases, colour = series)) +
   geom_line(linewidth = 0.6) +
   facet_wrap(~ province_en, scales = "free_y") +
   scale_colour_manual(values = c(observed = "black", fitted = "red")) +
   labs(x = "date", y = "monthly cases",
        title = "Observed vs SEIRS-fitted monthly cases") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
 ```{r seirs-export, echo=FALSE, message=FALSE}

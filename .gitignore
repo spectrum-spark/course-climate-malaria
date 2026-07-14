@@ -5,6 +5,9 @@
 
 /.quarto/
 
+# Quarto/knitr intermediate left behind by an interrupted or failed render
+*.rmarkdown
+
 # Rendered site (rebuilt locally; _freeze is committed so it builds from cache)
 /_site/
 
@@ -27,6 +30,9 @@ python_workflow/malaria_workflow.ipynb
 # diffs the two panel JSONs.
 /outputs/
 python_workflow/outputs/
+
+# Personal scratch/test scripts (not part of the course materials)
+local_test.R
 
 # IDE config
 .idea/
