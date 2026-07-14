@@ -7,35 +7,34 @@ template (same template as `course-advanced-id-modelling`).
 
 ## Status
 
-**Initial R port — quantitatively verified against the Python, but everything still
+**Initial R port: quantitatively verified against the Python, but everything still
 needs checking.** The statistical pipeline reproduces the expert's Python notebook
 (`python_workflow/malaria_workflow.ipynb`) to machine precision, checked
 automatically (see Verification below); the mechanistic SEIRS reproduces the same
 likelihood and predictions (its weakly-identified parameters agree to a few percent).
 What still needs review: the content and pedagogy (wording, questions, framing),
-presenter details, the flagged question for Vassili about the spatial-averaging
-choice, and how much of the optional/advanced material to present. The Python
-notebook remains the source of truth.
+presenter details, and how much of the optional/advanced material to present. The
+Python notebook remains the source of truth.
 
 ## Structure
 
-- `index.qmd` — landing page.
-- `session1_climate_primer/` — Session 1: links/embeds the climate science primer
+- `index.qmd`: landing page.
+- `session1_climate_primer/`, Session 1: links/embeds the climate science primer
   slides (`20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf`). No code.
-- `session2_climate_data/session2_climate_data.qmd` — **Session 2, the main port**:
+- `session2_climate_data/session2_climate_data.qmd`, **Session 2, the main port**:
   opens by framing the **research question** (the first step of modelling), then
   obtaining + data-download instructions and the ideal-vs-achievable workflow
   framing (Part 1), malaria case data (Part 2), reanalysis climate (Part 3), CMIP6
   projections (Part 4), the statistical ARIMA/ARX ("panel method") fit linking
   climate to incidence (Part 5), pushing that fit forward under CMIP6 to project
-  future cases (Part 6), and — behind an expandable box — an optional mechanistic
+  future cases (Part 6), and (behind an expandable box), an optional mechanistic
   SEIRS alternative ("Why an SEIRS model?"), which doubles as a worked code base for
   fitting a transmission model directly.
-- `session3_future_directions/` — Session 3: a code-free group discussion. Opens
+- `session3_future_directions/`, Session 3: a code-free group discussion. Opens
   with "does the question even need climate data?" (weather vs climate; when not to
   project), then breakout-group project-planning prompts (starting from the research
   question, including the ideal-vs-achievable discussion).
-- `_extensions/`, `style_training.css`, `logo.png` — copied from the sparkle
+- `_extensions/`, `style_training.css`, `logo.png`: copied from the sparkle
   template.
 
 The climate data and the Session 1 slides live in `data/` at the repository root,
@@ -73,23 +72,30 @@ figures/CSVs/JSON to the top-level `outputs/`. Both `outputs/` folders are git-i
 To run: execute the notebook once, render Session 2 once, then
 `source("python_workflow/compare.R")` (or `Rscript python_workflow/compare.R`).
 
-**Statistical pipeline — machine precision.** Province set (15) and months identical,
-`cases_mat` bit-identical, `clim_temp` ~5e-13 K, `clim_rain` ~5e-17 m, `panel_beta`
-~6e-15, `arx_fit` ~1e-11.
+**Statistical pipeline: machine precision where it matters.** Province set (15) and
+months identical, `cases_mat` bit-identical, `panel_beta` ~1e-10 (R and Python `beta`
+agree to 8 decimal places), `arx_fit` ~2e-7. The area-weighted `clim` fields agree to
+~3e-5 K (temperature) and ~1e-9 m (rainfall). The temperature residual is floating
+point in the cos-latitude weights (terra's reconstructed cell centres vs the netCDF
+coordinate); it sits ~30x below ERA5's own ~1e-3 K storage resolution and does not
+touch any downstream result. `compare.R` still flags it against the strict 1e-6
+tolerance (shown as **CHECK**) as an honest reminder that the two grids' weights
+differ at the floating-point level.
 
-**Mechanistic SEIRS — reproduces where it matters.** With both fits run to convergence
+**Mechanistic SEIRS: reproduces where it matters.** With both fits run to convergence
 (`maxiter`/`maxit` = 200) the negative log-likelihood agrees to ~6e-3 and the fitted
 case totals per province to ~0.3%; the climate sensitivities `b_temp`/`b_rain` to
-~1–3%. The individual `beta0`/`scale` parameters differ by 1–3% — a symptom of the
+~1–3%. The individual `beta0`/`scale` parameters differ by 1–3%, a symptom of the
 model's weak identifiability, not a porting error (see the identifiability note in the
 Session 2 SEIRS section). The integrator itself matches to ~1e-17 given identical
 parameters.
 
 Three things this verification surfaced and fixed: standardisation must use the
 **population** SD (÷n) to match NumPy's `np.std` (a `popsd()` helper); the climate
-extraction reproduces the notebook's chained `.mean('lat').mean('lon')` provincial
-average (flagged for Vassili — see To do); and the province selection keeps every
-province with >12 months (the updated notebook no longer drops the last two).
+extraction uses an **area-weighted** (cos-latitude) provincial mean (both the R and
+the notebook were switched to this, on Vassili's advice, from the notebook's earlier
+chained `.mean('lat').mean('lon')`); and the province selection keeps every province
+with >12 months (the updated notebook no longer drops the last two).
 
 ## Notes for first render
 
@@ -103,12 +109,9 @@ province with >12 months (the updated notebook no longer drops the last two).
 
 ## To do (course team)
 
-- **Ask Vassili** why the provincial climate is averaged with the chained
-  `.mean('lat').mean('lon')` rather than a flat or area-weighted mean (flagged in
-  Session 2, Part 3) — so it can be explained and justified to students.
 - Review all content and pedagogy (wording, questions, framing), and set presenter
   names in the `.qmd` front matter.
-- Decide how much of the optional/advanced material to present — the Part 6
+- Decide how much of the optional/advanced material to present: the Part 6
   statistical projection (drift caveat) and the SEIRS section (weakly identified,
   slower to fit in R).
 - For a student-facing build, hide speaker notes by setting

@@ -22,11 +22,11 @@ underpins the rest of the course. It sets up the concepts and data products that
 Session 2 then uses hands-on. It covers, at a high level:
 
 - the physics of the climate system, and how the climate is observed and modelled;
-- **reanalysis** — how past weather is reconstructed into gridded, physically
+- **reanalysis**: how past weather is reconstructed into gridded, physically
   consistent datasets (e.g. ERA5), which we use to *learn* climate relationships;
-- **CMIP** projections — how multi-model ensembles project future climate under
+- **CMIP** projections: how multi-model ensembles project future climate under
   different emissions scenarios, which we use to *apply* those relationships;
-- **emulators** — fast approximations of expensive climate models; and
+- **emulators**: fast approximations of expensive climate models; and
 - how these feed into **risk assessments** for climate-sensitive outcomes such as
   malaria.
 
@@ -34,7 +34,7 @@ Session 2 then uses hands-on. It covers, at a high level:
 
 The presentation slides are provided as a PDF:
 
-[📄 Climate science primer — slides (PDF)](../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf){target="_blank"}
+[📄 Climate science primer: slides (PDF)](../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf){target="_blank"}
 
 ```{=html}
 <p></p>

@@ -8,7 +8,7 @@ contributors:
   - "Dr Vassili Kitsios"
   - "Prof. Roslyn Hickson"
   - "Dr Michael Lydeamore"
-  - "Claude (Anthropic) — assisted with drafting these session materials; to be checked by the course team"
+  - "Claude (Anthropic), assisted with drafting these session materials; to be checked by the course team"
 ---
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
@@ -27,7 +27,7 @@ data_dir <- "../data"
 
 ::: speaker-note
 Session 3 is a **group discussion** about what participants could and should be
-doing with climate data in their own work — no code. Start by sanity-checking
+doing with climate data in their own work (no code). Start by sanity-checking
 whether a question even needs climate data (the section below), then run the
 breakout planning prompts. For anyone wanting a hands-on mechanistic model, the
 optional SEIRS practical now lives at the end of Session 2 (behind an expandable
@@ -39,7 +39,7 @@ box), which keeps this session focused on discussion.
 The first two sessions built a workflow: from raw climate and malaria data to a
 fitted, climate-driven model with future projections. This session steps back and
 asks: **what should you do with this in your own context?** As in Session 2, we
-start from the research question — and the first thing to decide is whether climate
+start from the research question, and the first thing to decide is whether climate
 data belongs in the answer at all. The rest of the session is spent in small groups
 planning concrete next steps.
 
@@ -69,8 +69,8 @@ decades forward. A rough spectrum, from clearly-not to yes-and-project:
 | Vaccination coverage needed to eliminate measles in a city | Rarely | Any seasonality is mostly school-term contact behaviour; the lever is coverage, not climate |
 | Will next week's heatwave raise heat-stroke presentations? | Weather, not climate | A short-term operational forecast; long-range climate projections are the wrong timescale |
 | Did the recent flooding trigger a cholera outbreak? | Weather (event), not projection | Near-term attribution of one event; projecting to 2100 does not answer it |
-| How did the last El Niño affect dengue seasons? | Climate variability — but be careful projecting | Uses observed climate variability; a forward projection may be swamped by urbanisation, interventions, or immunity |
-| How might dengue/malaria risk shift across regions by 2050 under emissions scenarios? | Yes — and project forward | Vector-borne, climate-sensitive, long horizon — the case-study type this course is built around |
+| How did the last El Niño affect dengue seasons? | Climate variability, but be careful projecting | Uses observed climate variability; a forward projection may be swamped by urbanisation, interventions, or immunity |
+| How might dengue/malaria risk shift across regions by 2050 under emissions scenarios? | Yes, and project forward | Vector-borne, climate-sensitive, long horizon, the case-study type this course is built around |
 
 Two distinctions are worth making explicit:
 
@@ -80,8 +80,8 @@ Two distinctions are worth making explicit:
   and *forecasting*; only questions about the shifting long-run baseline need climate
   data and *projections*.
 - **When not to project.** Even a genuinely climate-sensitive outcome can be a poor
-  candidate for forward projection if faster-moving drivers — interventions, drug
-  resistance, urbanisation, demography, health-system change — will dominate the
+  candidate for forward projection if faster-moving drivers (interventions, drug
+  resistance, urbanisation, demography, health-system change) will dominate the
   climate signal over the horizon of interest. The honest output there is a
   sensitivity analysis, not a headline projection.
 
@@ -98,7 +98,7 @@ a real decision in their setting.
 In groups of three or four, work through the following. Nominate someone to jot
 down your group's answers to share back.
 
-**Prompt A — The question (and does it need climate data?).** Write down one
+**Prompt A: The question (and does it need climate data?).** Write down one
 *decision* or *policy question* relevant to your work. Then sanity-check it against
 the spectrum above: does answering it actually need climate data, or is it really a
 *weather*/forecasting question, or one where projecting decades forward would not
@@ -109,7 +109,7 @@ make sense? If climate does belong, what would a useful answer look like?
 ```
 <p><br></p>
 
-**Prompt B — The data.** Which of the four data types from Session 2 (health
+**Prompt B: The data.** Which of the four data types from Session 2 (health
 surveillance, administrative boundaries, climate reanalysis, climate projections)
 can you realistically obtain? Where are the gaps, and how might you fill or work
 around them?
@@ -119,7 +119,7 @@ around them?
 ```
 <p><br></p>
 
-**Prompt C — Ideal vs achievable.** Recall the three tiers from Session 2:
+**Prompt C: Ideal vs achievable.** Recall the three tiers from Session 2:
 vector-explicit (climate → mosquito abundance → transmission → incidence),
 climate-forced mechanistic (SEIRS), and direct statistical. What is the *most
 mechanistic* model your data could actually support? For malaria we wanted the
@@ -132,7 +132,7 @@ a tier?
 ```
 <p><br></p>
 
-**Prompt D — The caveats.** List the two or three biggest caveats you would attach
+**Prompt D: The caveats.** List the two or three biggest caveats you would attach
 to any projection you produced. Who needs to hear those caveats, and how would you
 communicate them?
 
@@ -141,7 +141,7 @@ communicate them?
 ```
 <p><br></p>
 
-**Prompt E — The next step.** Each person: write down one concrete thing you will
+**Prompt E: The next step.** Each person: write down one concrete thing you will
 do in the next month (obtain a dataset, reproduce a part of this workflow, talk to
 a data holder, etc.).
 

@@ -1,31 +1,31 @@
 ---
 title: "Climate data in infectious disease modelling"
-subtitle: "Three sessions on using climate data in infectious disease transmission modelling — a case study of malaria in Thailand"
+subtitle: "Three sessions on using climate data in infectious disease transmission modelling, a case study of malaria in Thailand"
 ---
 
 These three sessions describe how one could use climate data in infectious disease
 transmission modelling. Rather than a fixed curriculum, they walk through the ideas
-and a practical workflow — from the underlying climate science, through obtaining
-and manipulating climate data, to fitting a model and projecting forward — using
+and a practical workflow (from the underlying climate science, through obtaining
+and manipulating climate data, to fitting a model and projecting forward) using
 **malaria in Thailand** as a running case study.
 
 ## The three sessions
 
 The material is organised into three sessions:
 
-**Session 1 — Climate science primer.** A remote, slide-based introduction to the
+**Session 1: Climate science primer.** A remote, slide-based introduction to the
 physics of the climate system, reanalysis products, CMIP projections, emulators,
 and how these feed into risk assessments. Delivered as a presentation; the slides
 are linked from the Session 1 page.
 
-**Session 2 — Obtaining, manipulating, and fitting climate data.** A hands-on
+**Session 2: Obtaining, manipulating, and fitting climate data.** A hands-on
 practical, in R, building the end-to-end workflow: obtaining malaria case data and
 climate data (reanalysis and future projections), summarising climate to the
 administrative units used for surveillance, linking climate to cases, and fitting
 a statistical model that relates climate to malaria incidence (with projections
 under future scenarios).
 
-**Session 3 — Future directions and project planning.** Mostly breakout-group
+**Session 3: Future directions and project planning.** Mostly breakout-group
 discussion on what participants could and should be working on with climate data
 in their own contexts. A mechanistic climate-forced transmission model is included
 as an optional, more advanced practical.

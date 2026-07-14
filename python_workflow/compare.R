@@ -58,6 +58,10 @@ cat("\nDirect comparison of saved outputs: R (Quarto) vs Python (notebook)\n")
 cat(sprintf("  provinces    %d, identical set: %s\n",
             length(py$selected), identical(sort(py$selected), sort(r$selected))))
 chk("cases_mat",  md(al(r$cases_mat),  py$cases_mat))
+# clim_temp trips the 1e-6 tolerance at ~3e-5 K: floating point in the cos-latitude
+# area weights (terra's reconstructed cell centres vs the netCDF coordinate). It is
+# ~30x below ERA5's own ~1e-3 K storage resolution, so the CHECK is informational, not
+# a sign of a real discrepancy.
 chk("clim_temp",  md(al(r$clim_temp),  py$clim_temp), "(K)")
 chk("clim_rain",  md(al(r$clim_rain),  py$clim_rain), "(m)")
 chk("panel_beta", md(r$panel_beta,     py$panel_beta))
@@ -75,7 +79,7 @@ sp <- file.path(here, "outputs", "python_seirs.json")            # python_workfl
 sr <- file.path(dirname(here), "outputs", "r_seirs.json")        # repo-root outputs
 if (file.exists(sp) && file.exists(sr)) {
   pys <- fromJSON(sp); rs <- fromJSON(sr)
-  cat("\nFitted SEIRS (optimiser-dependent — expect close, not bit-identical):\n")
+  cat("\nFitted SEIRS (optimiser-dependent, expect close, not bit-identical):\n")
   for (nm in c("nll", "sigma", "gamma", "omega", "b_temp", "b_rain")) {
     d <- abs(pys[[nm]] - rs[[nm]]); rel <- d / max(abs(pys[[nm]]), 1e-12)
     cat(sprintf("  %-7s Py=% .6g  R=% .6g  |diff|=%.3e (%.2f%%)\n",
@@ -94,6 +98,6 @@ if (file.exists(sp) && file.exists(sr)) {
   cat(sprintf("  %-7s max|R - Py| = %.3f cases;  per-province total agrees to %.2f%%\n",
               "lam_fit", max(abs(lam_r - lam_p)), relmax(rowSums(lam_p), rowSums(lam_r))))
 } else {
-  cat("\n(SEIRS outputs not found — run the notebook's SEIRS cells and render",
+  cat("\n(SEIRS outputs not found: run the notebook's SEIRS cells and render",
       "Session 2's SEIRS block to include the fitted-SEIRS comparison.)\n")
 }
