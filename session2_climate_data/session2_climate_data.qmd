@@ -139,7 +139,8 @@ Reading that question tells us:
   reported in).
 - a **historical period** where we observe outcome and drivers together, to \
   *learn* the relationship. This is also often driven by data availability.
-- **future climate** for the same region, to *project* that relationship forward.
+- **future climate** for the same region, to *project* that relationship 
+  forward.
 
 This list is the data we found available, not the initial list assembled. 
 
@@ -160,7 +161,7 @@ There is no single right answer.
 We were initially planning on relating mosquito vector abundance to the climatic
 variables, and projecting those forward and linking to malaria incidence via a 
 transmission model tracking humans and vectors. But we couldn't find abundance 
-data in Thailand at the same period as the malaria incidence data.
+data in Thailand at the same time period as the malaria incidence data.
 :::
 
 ---
@@ -173,103 +174,104 @@ This part is about *where the data come from* and *why each source was chosen*.
 
 The workflow draws on four data sources. Three are used directly in the 
 analysis; the fourth (mosquito occurrence) motivates the approach but is not 
-currently used.
+currently used. The table below is the quick reference; each source, and why it 
+was chosen, is expanded underneath.
+
+| # | Data | What it is / role | Why this source | Source |
+|---|--------|-------------------|-----------------|-------------|
+| 1 | Malaria cases | national surveillance line list (the outcome) | authoritative, national, open, right resolution | [Thai DDC](https://malaria-api.ddc-malaria.org/study/2year/calendar){target="_blank"} |
+| 2 | Spatial region boundaries | province (ADM1) polygons; aggregate grid to province | official ADM1; names align with the case data | [Open Dev Mekong](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"} |
+| 3 | ERA5 reanalysis | gap-free past climate, used to *learn* | state of the art, ~0.25°, complete coverage, open | [Copernicus CDS](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"} |
+| 4 | CMIP6 projections | multi-model future climate, used to *project* | latest coordinated ensemble; scenarios bracket futures | [Copernicus CDS](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"} |
+
+::: {.callout-tip}
+Reanalysis (ERA5) is used to *learn* the relationship between climate and malaria
+over the historical period; the CMIP6 projections are used to *project* that
+relationship forward under future emissions scenarios.
+:::
 
 **1. Malaria case data (surveillance line list).** Individual records of malaria
-blood draws in Thailand, with date, province, district, and result (*P. vivax*
-`V`, *P. falciparum* `F`, or other). Obtained from the Thai DDC malaria API:
-[https://malaria-api.ddc-malaria.org/study/2year/calendar](https://malaria-api.ddc-malaria.org/study/2year/calendar){target="_blank"}.
-Saved as `data/malaria/calendar.json`.
+blood draws in Thailand, with date, province, district, and result (*P. vivax* `V`,
+*P. falciparum* `F`, or other). This is the outcome we are modelling, and it comes
+from the national surveillance system (Thailand's DDC), so it is authoritative and
+consistent across the whole country. It is openly queryable via the API (no
+data-sharing agreement for this aggregated endpoint) and carries date, province,
+district and species per record, at the spatial and temporal resolution we need for
+monthly climate. Alternatives like WHO country-year totals are too coarse, and
+hospital records are not openly accessible.
 
-This is the outcome we're modelling and it comes from the national surveillance 
-system (Thailand's DDC), so it's authoritative and consistent across the whole 
-country. It's openly queryable via the API (no data-sharing agreement for this 
-aggregated endpoint), and it carries date, province, district and species per 
-record. Further, the spatial and temporal resolution align with what we need for
-monthly climate. Alternatives like WHO country-year totals are too coarse, and 
-hospital records aren't openly accessible.
+*Source and files:* [https://malaria-api.ddc-malaria.org/study/2year/calendar](https://malaria-api.ddc-malaria.org/study/2year/calendar){target="_blank"} , saved as `data/malaria/calendar.json`.
 
-**2. Administrative boundaries (shape files).** The province 
-(ADM1) boundaries for Thailand. Shape files contain polygon descriptions of 
-boundaries (countries, provinces, districts) and are used to apply operations, 
-such as a spatial average, to gridded data over only the region of interest. 
-Downloaded from Open Development Mekong 
-[https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"}.
-Saved under `data/shape_files/tha_admbnda_adm1_rtsd_20190221/`.
+::: {.callout-note appearance="minimal"}
+**DDC** is Thailand's Department of Disease Control (its vector-borne disease division runs the malaria surveillance).
+:::
 
-We need province polygons because cases are reported per province but climate is
-gridded. The polygons are what let us aggregate the grid to the reporting unit. 
-This particular set was chosen because it's the official Thai ADM1 (province) 
-boundaries, so its units and names align with how the surveillance data is 
-reported (name alignment matters: it's why some provinces drop out when names 
-don't match), and it's freely available in a standard GIS format.
+**2. Administrative boundaries (shape files).** Province boundaries for Thailand. We
+need province polygons because cases are reported per province but climate is
+gridded; the polygons let us aggregate the grid to the reporting unit. This set was
+chosen because it is the official Thai ADM1 (province) boundaries, so its units and
+names align with how the surveillance data is reported (name alignment matters: it
+is why some provinces drop out when names do not match), and it is freely available
+in a standard GIS format.
 
-**3. Climate reanalysis (ERA5).** Gridded, monthly-averaged 2 m temperature 
-(`2t`) and total precipitation (`tp`). A physically consistent reconstruction of 
-past weather used here to *learn* the climate–malaria relationship. The required
-data is already curated for you; additional variables can be downloaded freely 
-from the Copernicus Climate Change Service (C3S) Climate Data Store, including 
-for the ERA5 monthly single levels used here:
-[https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"}.
-Saved under `data/reanalysis/monthly-averaged/`.
+*Source and files:* [https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"} , saved under `data/shape_files/tha_admbnda_adm1_rtsd_20190221/`.
 
-"ERA" is ECMWF Re-Analysis, where ECMWF is the European Centre for Medium-Range 
-Weather Forecasts. The "5" means it's the fifth generation (the lineage runs 
-ERA-15 → ERA-40 → ERA-Interim → ERA5).
+::: {.callout-note appearance="minimal"}
+A **shape file** stores polygon boundaries (countries, provinces, districts); **ADM1** is the first sub-national administrative level, here the provinces.
+:::
 
-Reanalysis rather than weather stations because stations are sparse and gappy, 
-whereas reanalysis gives complete, gap-free, physically consistent fields 
-everywhere, which is essential for giving every province a climate value. ERA5 
-specifically because it's the current state-of-the-art global reanalysis 
-(ECMWF), ~0.25° resolution, well validated, openly available, and it has the 
-variables we want (2 m temperature, total precipitation; based on mosquito 
-physiology) at monthly resolution. It's the de facto standard for climate–health
-work.
+**3. Climate reanalysis (ERA5).** Gridded, monthly-averaged 2 m temperature (`2t`)
+and total precipitation (`tp`): a physically consistent, gap-free reconstruction of
+past weather, used here to *learn* how climate relates to malaria. We use reanalysis
+rather than weather stations because stations are sparse and gappy, whereas
+reanalysis gives complete fields everywhere, which is essential for giving every
+province a climate value. We use ERA5 specifically because it is the current
+state-of-the-art global reanalysis (~0.25° resolution, well validated, openly
+available), carrying the variables we want (temperature and precipitation drive
+mosquito abundance and survival) at monthly resolution. It is the de facto standard
+for climate and health work.
+
+*Source and files:* [https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"} , saved under `data/reanalysis/monthly-averaged/`. The required subset is already curated for you; other variables can be downloaded freely from the Copernicus Climate Change Service (C3S) Climate Data Store.
+
+::: {.callout-note appearance="minimal"}
+**ERA5** = ECMWF Re-Analysis, 5th generation (ECMWF is the European Centre for Medium-Range Weather Forecasts; the lineage runs ERA-15, ERA-40, ERA-Interim, ERA5).
+:::
 
 **4. Future climate projections (CMIP6).** A multi-model ensemble of monthly
 temperature (`tas`) and precipitation (`pr`) for Thailand under two emissions
-scenarios, Shared Socioeconomic Pathways (SSP) 1-2.6 and SSP5-8.5. Used to 
-*project* the learned relationship into the future. The data is curated and 
-trimmed to the region for this case study; additional variables, scenarios, or 
-the full globe can be downloaded freely from the same Climate Data Store, for 
-CMIP6 Projections:
-[https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"}.
-Saved under `data/cmip6/monthly-averaged/`.
+scenarios (SSP1-2.6 and SSP5-8.5), used to *project* the learned relationship into
+the future. We use CMIP6 specifically because it is the latest coordinated
+multi-model generation (the models underpinning IPCC AR6), delivered in a standard,
+comparable format, so we can use a multi-model ensemble to represent model
+uncertainty and the SSP scenarios to bracket futures. SSP1-2.6 and SSP5-8.5 were
+chosen as a low- and high-emissions pair to show sensitivity to the pathway. It is
+also regriddable onto the ERA5 grid, so the historical and future steps stay
+consistent.
 
-Coupled Model Intercomparison Project, and the "6" is the sixth phase. "Coupled"
-refers to coupled atmosphere–ocean climate models. In SP1-2.6, the "1" is the 
-sustainability pathway and "2.6" is the resulting radiative forcing (~2.6 W/m² 
-by 2100, i.e. low warming); in SSP5-8.5, the "5" is the fossil-fuel-intensive 
-pathway and "8.5" is a high forcing (~8.5 W/m², high warming). So the first 
-digit sets the socioeconomic story and the second sets the climate outcome.
+*Source and files:* [https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"} , saved under `data/cmip6/monthly-averaged/`. The data is curated and trimmed to the region for this case study; other variables, scenarios, or the full globe are available from the same Climate Data Store.
 
-These climate projections are used to apply the learned relationship between
-malaria incidence and our chosen weather variables (temperature `2t` and 
-precipitation `tp`). CMIP6 specifically because it's the latest coordinated 
-multi-model generation (the models underpinning IPCC AR6), delivered in a 
-standard, comparable format. So we can use a multi-model ensemble to represent 
-model uncertainty and SSP scenarios to bracket futures. SSP1-2.6 and SSP5-8.5 
-were chosen as a low- and high-emissions pair to show sensitivity to the 
-pathway. It's also regriddable onto the ERA5 grid, so the "learn on reanalysis, 
-apply on projections" step stays consistent.
+::: {.callout-note appearance="minimal"}
+**CMIP6** = Coupled Model Intercomparison Project, 6th phase ("coupled" refers to coupled atmosphere and ocean models). In an **SSP** (Shared Socioeconomic Pathway) label such as SSP1-2.6, the first digit is the socioeconomic story (1 = sustainability, 5 = fossil-fuel-intensive) and the second is the resulting radiative forcing (2.6 vs 8.5 W/m² by 2100, i.e. low vs high warming).
+:::
 
-**On mosquito data (not currently used).** Mosquito occurrence records are
-available from GBIF (dataset db4211d6 
-[https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12](https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12){target="_blank"}),
-but there are no samples after 2022, so they do not overlap the 2025–2026 malaria
-data. For now, rather than modelling mosquito populations explicitly, we relate
-malaria incidence in humans to environmental variables directly (the approach 
-taken in Part 5). Regardless, this is a good, straightforward, way to test a 
-hypothesis that environmental variables such as these are impacting the health 
-outcomes of interest, and potentially which ones. A natural extension is to 
-obtain overlapping mosquito data, learn the influence of temperature on the 
-mosquito population, then the impact of that population on malaria infections 
-via a transmission model.
+**Mosquito occurrence (GBIF), considered but not used.** Mosquito occurrence records
+for Thailand. We explored GBIF because it is the largest aggregator of open occurrence
+records, so it is the obvious first place to look for vector data. It is not used here
+because it gives *occurrence*, not *abundance*, and has no samples after 2022, so it
+does not overlap the 2025 to 2026 malaria data. For now we relate malaria incidence in
+humans to environmental variables directly (the approach taken in Part 5); regardless,
+this is a good, straightforward way to test whether environmental variables such as
+these are affecting the health outcomes of interest, and which ones. A natural
+extension is to obtain overlapping mosquito data, learn the influence of temperature on
+the mosquito population, then the impact of that population on malaria infections via a
+transmission model.
 
-We explored GBIF data because it's the largest aggregator of open occurrence 
-records, so it's the obvious first place to look for vector data. It's excluded 
-because it gives occurrence, not abundance, and has no records overlapping the 
-2025–26 malaria period.
+*Source and files:* [https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12](https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12){target="_blank"} (not downloaded; not part of the analysis).
+
+::: {.callout-note appearance="minimal"}
+**GBIF** is the Global Biodiversity Information Facility, the largest aggregator 
+of open species-occurrence records.
+:::
 
 ::: {.callout-note}
 ## Obtaining the data yourself
@@ -283,41 +285,32 @@ separately in the `data/` folder at the repository root.
 ## Ideal vs achievable workflows
 
 ::: speaker-note
-This is a key discussion point to raise explicitly with participants: **what you
-*want* to do is constrained by the data you can actually get.** When planning 
-this example we had hoped to match local mosquito vector abundance to climate, 
-then feed mosquito population estimates directly into a transmission model. We
-couldn't find overlapping abundance data, so we changed our approach, to the
-direct statistical model of incidence (Part 5), and a simple SEIRS model in 
-which climate forces transmission directly (the optional section at the end of 
-this session). The best approach is to model the *known* climate-sensitive 
-mechanism (in this case, the mosquito population) explicitly. But data 
-availability is a key driver of the refined research question in most modelling. 
+The key discussion point here: what you *want* to do is often constrained by the
+data you can actually get. 
 :::
 
-The right workflow is rarely the most sophisticated one — it is the most
-mechanistic model your data can actually support. For malaria, the biologically
-known climate-sensitive link is the *mosquito*: temperature and rainfall drive
-mosquito abundance, biting, and survival, which in turn drive transmission. That
-suggests three tiers of approach:
+The right workflow is rarely the most sophisticated one, but one that fits 
+both your question and that your data can actually support. For malaria, the 
+biologically known climate-sensitive link is the *mosquito* population: 
+temperature and breeding site available, typically via rainfall, drive mosquito 
+abundance, which in turn drives transmission. 
 
-| Approach | Pipeline | What it needs | Biological fidelity |
+| Approach | Pipeline | Data needed | Biological fidelity |
 |---|---|---|---|
-| **Ideal** (vector-explicit) | climate → mosquito abundance → transmission model → incidence | overlapping local mosquito **abundance** data *and* climate | highest |
-| **Achievable here** (climate-forced SEIRS) | climate → transmission (β forced by climate) → incidence | case data + climate | medium — climate stands in for the missing vector dynamics |
-| **Simplest** (direct statistical) | climate → incidence | case data + climate | lowest — no explicit mechanism |
+| **Ideal** (vector-explicit) | climate → mosquito abundance → transmission model → incidence | overlapping spatio-temporal local mosquito **abundance** data *and* climate | highest |
+| **Simplest** (direct statistical) | climate → incidence | overlapping spatio-temporal case data + climate | lowest: no explicit mechanism |
+| **Achievable here** (climate-forced SEIRS) | climate → transmission model (transmission forced by climate) → incidence | overlapping spatio-temporal case data + climate | medium: climate link through implicit vector dynamics |
 
-For this example we wanted the **ideal** path, but no mosquito abundance data
-overlapped the malaria period (see the GBIF note above), so we use the lower two
-tiers: a direct statistical model (Part 5) and a climate-forced SEIRS model (the
-optional section at the end of this session). Both skip the mosquito layer and let
-climate stand in for it. This is
-a deliberate, data-driven compromise — not the biologically preferred design — and
-it is worth being honest about that trade-off when presenting results.
+For this example we wanted the **ideal** path, but we couldn't find mosquito 
+abundance data that spatio-temporally overlapped the malaria period (see the 
+GBIF note above), so we use the lower two tiers: a direct statistical model 
+(Part 5) and a climate-forced SEIRS model (the optional section at the end of 
+this session). Both skip the mosquito layer. This is a data-driven compromise.
 
-**1.1 Look at the four data sources above. For your own context, which of these
-would be the hardest to obtain, and why? Is there an equivalent malaria (or other
-health) surveillance dataset you could access?**
+**1.1 For each of the four data sources above, what alternative dataset or 
+approach could you use in its place? Think about substitutes for ERA5, for 
+CMIP6, and for the provincial case and boundary data, and what you would trade 
+off by switching. If you identfied other data earlier, what sources are there?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -325,8 +318,8 @@ health) surveillance dataset you could access?**
 <p><br></p>
 
 **1.2 Reanalysis is used to *learn* the climate–disease relationship and CMIP6
-projections are used to *apply* it into the future. Why can we not simply use the
-future projections to learn the relationship in the first place?**
+projections are used to *project* it into the future. Why can we not simply use 
+the future projections to learn the relationship in the first place?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -336,20 +329,26 @@ future projections to learn the relationship in the first place?**
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Solutions for Part 1 — click to reveal (try the questions first)
+## Solutions for Part 1: click to reveal (try the questions first)
 
-**1.1** No single answer. The malaria surveillance data is often the hardest to
-obtain in practice, because health data is sensitive, may require data-sharing
-agreements, and is frequently not openly available at fine spatial/temporal
-resolution. Climate reanalysis (ERA5) and CMIP6 are, by contrast, openly available
-(they just require an account and some bandwidth). The point is to get
-participants thinking about the data landscape in their own setting.
+**1.1** There are alternatives for every source, each with trade-offs. For the
+reanalysis, other products such as MERRA-2 or JRA-55, or gridded observational
+datasets (for example CHIRPS for rainfall, CRU for temperature), could replace 
+ERA5, trading spatial and temporal resolution and which variables are available. 
+For the projections, CMIP5 or a downscaled or emulated ensemble could replace 
+CMIP6, changing resolution, the scenario definitions, and the model spread. For 
+the boundaries, a different administrative product or a gridded population layer 
+could be used, changing which spatial unit cases are aggregated to. For the case 
+data, a different health outcome or a modelled incidence surface could stand in 
+where line-list surveillance is not available. The point is to notice that each 
+swap changes resolution, coverage, or assumptions rather than to find one right 
+answer.
 
-**1.2** Future projections are, by construction, *projections* — they describe
+**1.2** Future projections are, by construction, *projections*: they describe
 plausible futures, not observed weather, and there is no malaria data from the
-future to pair them with. We can only learn a relationship where we observe *both*
-climate and cases together, which means the historical/reanalysis period. The
-projections are then used to *apply* that learned relationship forward.
+future to pair them with. We can only learn a relationship where we observe 
+*both* climate and cases together, which means the historical/reanalysis period. 
+The projections are then used to *project* that learned relationship forward.
 :::
 
 ---
@@ -358,11 +357,12 @@ projections are then used to *apply* that learned relationship forward.
 
 ::: speaker-note
 This part reads the surveillance line list and aggregates it. The key teaching
-points are: (1) surveillance data are messy and unevenly reported across
-provinces and time — this is why we later restrict to provinces with enough data;
-and (2) aggregating to monthly counts per province gives us the response variable
+points are: 
+(1) surveillance data are messy and unevenly reported across provinces and time; 
+this is why we later restrict to provinces with enough data; and 
+(2) aggregating to monthly counts per province gives us the response variable
 that we will link to climate. The code is a direct translation of the Python
-`pandas` workflow. Have participants run it and *look at* the province panels
+`pandas` workflow. Have participants run it and *consider* the province panels
 (question 2.2) before moving on.
 :::
 
@@ -474,7 +474,7 @@ it matter, for a climate-driven analysis, that these two species are combined?**
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Solutions for Part 2 — click to reveal (try the questions first)
+## Solutions for Part 2: click to reveal (try the questions first)
 
 **2.1** There are many provinces in the raw data, but only those reported in more
 than 12 months are kept (a couple of dozen), and of those only the ones whose names
@@ -484,7 +484,7 @@ standardise sensibly; provinces with only a handful of reported months cannot su
 a climate–seasonality analysis.
 
 **2.2** Most provinces show a seasonal rise and fall, but not all peak in the same
-month — malaria seasonality depends on local climate, elevation, land use, and
+month; malaria seasonality depends on local climate, elevation, land use, and
 the timing of the rains, which differ across the country. Border provinces and
 forested provinces often behave differently from central ones.
 
@@ -504,36 +504,51 @@ natural next step.
 This part links gridded climate to the administrative units that malaria is
 reported in. The conceptual step to draw out is the *spatial mismatch*: climate
 comes on a regular latitude–longitude grid, but cases come per province. We
-resolve it in two steps that reproduce the original Python exactly. First,
-**strict cell-centre assignment**: a grid cell belongs to the province whose polygon
-contains the cell's *centre* (a point-in-polygon test, matching the `regionmask`
-package). Second, the province's cells are averaged with the notebook's chained
-`.mean('lat').mean('lon')` — average over latitude *within each longitude column*,
-then over longitude. That second step is a subtle choice: it differs from a flat
-mean over all the province's cells for irregularly shaped provinces (see the TODO
-below — we need Vassili's rationale so we can justify it to participants).
+resolve it in two steps. First, **strict cell-centre assignment**: a grid cell
+belongs to the province whose polygon contains the cell's *centre* (a
+point-in-polygon test, matching the `regionmask` package). Second, the province's
+cells are combined with an **area-weighted average**, each cell weighted by cos of
+its latitude because grid cells shrink towards the poles; this is the standard
+spatial mean (see the aside on population weighting).
 Participants often ask why we keep temperature in Kelvin during standardisation:
 because a constant offset (Kelvin vs Celsius) does not change a standardised
 (z-scored) series, so it only matters for the plots, where we convert to °C.
 :::
 
 Malaria is reported per province, but ERA5 climate comes on a regular grid. To
-link them, we summarise the grid to provinces in two steps that match the original
-analysis: **strict cell-centre assignment** — each grid cell is assigned to the
-province whose polygon contains the cell's centre (a point-in-polygon test with
-`sf`, matching the [`regionmask`](https://regionmask.readthedocs.io){target="_blank"}
-package) — and then a **chained latitude-then-longitude average** of those cells,
-reproducing the notebook's `.mean('lat').mean('lon')` (see the note below).
+link them, we summarise the grid to provinces in two steps: **strict cell-centre
+assignment**, where each grid cell is assigned to the province whose polygon contains
+the cell's centre (a point-in-polygon test with `sf`, matching the
+[`regionmask`](https://regionmask.readthedocs.io){target="_blank"} package), and then
+an **area-weighted average** of those cells, weighting each by cos of its latitude so
+that cells count in proportion to their area.
 
-::: {.todo-note}
-The provincial climate is averaged with the original workflow's chained
-`.mean('lat').mean('lon')`: average over latitude within each longitude column, then
-over longitude. For an irregularly shaped province this differs from a flat mean
-over all its cells (e.g. Uthai Thani: 295.08 K vs 294.64 K). **Ask Vassili** why
-this averaging was chosen — whether it is deliberate (some weighting rationale) or an
-xarray convention — so we can explain and justify it to participants, and decide
-whether to keep it or move to a flat or area-weighted (cos-latitude) spatial mean.
-R reproduces the notebook's choice exactly so the two implementations agree.
+::: {.callout-note collapse="true"}
+## Why cos of latitude is the exact area weight
+
+On a regular grid every cell spans the same number of degrees in latitude and
+longitude, but equal degrees are not equal area: meridians converge towards the
+poles, so a cell's east-west width shrinks with latitude while its north-south height
+stays fixed. The area of the cell between latitudes `lat₁` and `lat₂`, over a
+longitude span `Δλ` on a sphere of radius `R`, is
+`A = R² · Δλ · (sin(lat₂) - sin(lat₁))`. For a cell of height `Δlat` centred at
+latitude `lat`, the identity
+`sin(lat + Δlat/2) - sin(lat - Δlat/2) = 2 · cos(lat) · sin(Δlat/2)` turns this into
+`A = R² · Δλ · 2 · sin(Δlat/2) · cos(lat)`. Every factor except `cos(lat)` is
+identical for all cells on a regular grid, and constant factors cancel in a
+normalised weighted mean, so weighting each cell by cos of its centre latitude
+reproduces the true area weighting exactly. It is not a small-angle approximation: it
+is exact for a sphere. The Earth's slight oblateness shifts cell areas by a fraction
+of a percent, far below anything that matters at this provincial scale.
+:::
+
+::: {.callout-note appearance="minimal"}
+We weight each cell by its area (cos of latitude), the standard spatial mean. For
+climate and health work an even better choice is **population-density weighting**,
+which captures the climate where people actually live. That matters most for
+countries with very uneven populations (for example Australia, where most people are
+concentrated in a few coastal cities); at Thailand's provincial scale the difference
+is small, so we keep area-weighting here.
 :::
 
 **Run the code below, then work through the questions.**
@@ -636,28 +651,21 @@ cell_region <- vapply(within,
                       function(h) if (length(h)) h[1] else NA_integer_,
                       integer(1))
 
-# Provincial mean for every layer (time step), reproducing the original workflow's
-# chained `ds.where(mask==k).mean('lat').mean('lon')`: average over latitude *within
-# each longitude column* first, then average those column-means over longitude. This
-# differs from a flat mean over all cells for provinces whose cells are spread
-# unevenly across columns, so we match the notebook exactly rather than approximate.
-# TODO (course team): ask Vassili why this chained average was used rather than a
-# flat or area-weighted (cos-latitude) spatial mean, so we can justify it to students.
-# The grid is shared by the reanalysis and (after resampling) the CMIP data, so the
-# same cell assignment and longitudes are reused in Part 4.
+# Provincial mean for every layer (time step), area-weighted by cell size. Grid
+# cells shrink towards the poles, so each cell is weighted by cos(latitude); this is
+# the standard, physically correct spatial average. The cell assignment and weights
+# are shared by the reanalysis and (after resampling) the CMIP data, so they are
+# reused in Part 4.
+cell_w <- cos(grid_xy[, 2] * pi / 180)                    # per-cell area weight (cos latitude)
 region_means <- function(r) {
   vals <- terra::values(r)                                # ncell x nlayer
-  lon  <- grid_xy[, 1]                                    # per-cell longitude
   out  <- matrix(NA_real_, length(region_names), ncol(vals),
                  dimnames = list(region_names, NULL))
   for (k in seq_along(region_names)) {
     sel <- which(cell_region == k)
     if (!length(sel)) next
-    cols <- split(sel, lon[sel])                          # province cells grouped by longitude
-    col_means <- vapply(cols,                             # mean over latitude within each column
-      function(ix) colMeans(vals[ix, , drop = FALSE], na.rm = TRUE),
-      numeric(ncol(vals)))                                # nlayer x n_columns
-    out[k, ] <- rowMeans(col_means, na.rm = TRUE)         # then mean over longitude columns
+    w <- cell_w[sel]
+    out[k, ] <- colSums(vals[sel, , drop = FALSE] * w, na.rm = TRUE) / sum(w)
   }
   out
 }
@@ -723,9 +731,9 @@ learning a climate–malaria relationship from such a short record?**
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Solutions for Part 3 — click to reveal (try the questions first)
+## Solutions for Part 3: click to reveal (try the questions first)
 
-**3.1** Averaging to a province discards all within-province spatial variation —
+**3.1** Averaging to a province discards all within-province spatial variation:
 elevation gradients, forest edges, urban vs rural. For a large or topographically
 varied province, a single average may not represent the conditions where
 transmission actually happens (often specific ecological niches), so the link to
@@ -750,7 +758,7 @@ on such a fit should be treated as illustrative.
 ::: speaker-note
 This part summarises the CMIP6 multi-model ensemble to the same provinces, under
 two scenarios. The key ideas for participants: (1) CMIP6 is an *ensemble* of many
-climate models — we summarise across models with a mean and an interquartile band,
+climate models; we summarise across models with a mean and an interquartile band,
 rather than trusting any single model; and (2) the two scenarios (SSP1-2.6 low
 emissions, SSP5-8.5 high emissions) bracket a range of plausible futures. This is
 a direct translation of the original Python, including the precipitation unit
@@ -955,7 +963,7 @@ we show a *range* across models rather than picking the single "best" model?**
 <p><br></p>
 
 **4.2 Compare the two scenarios (SSP1-2.6 and SSP5-8.5). How far apart are the
-temperature projections by the end of the century? What about rainfall — is the
+temperature projections by the end of the century? What about rainfall: is the
 model agreement as strong?**
 
 ```{=html}
@@ -975,7 +983,7 @@ climate–malaria relationship when we extrapolate it decades into the future?**
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Solutions for Part 4 — click to reveal (try the questions first)
+## Solutions for Part 4: click to reveal (try the questions first)
 
 **4.1** Individual climate models disagree, especially on rainfall. The
 ensemble mean is more reliable than any single model, and the spread (here the
@@ -989,7 +997,7 @@ usually wide and the scenarios may overlap, reflecting genuine disagreement abou
 how precipitation will change.
 
 **4.3** We are assuming the climate–malaria relationship learned over a couple of
-recent years holds, unchanged, decades into the future — i.e. that no adaptation,
+recent years holds, unchanged, decades into the future, i.e. that no adaptation,
 intervention, land-use change, drug resistance, or shift in the mosquito/parasite
 system alters it. That is a strong assumption and the main caveat on any such
 projection.
@@ -1006,9 +1014,9 @@ out: (1) we model the *first difference* (month-to-month change) in cases rather
 than the level, and we *standardise* per province, so that provinces of very
 different sizes contribute comparably; (2) climate enters as temperature, rainfall,
 and their squares, allowing a hump-shaped (optimum) response; and (3) the fitted
-coefficients are *shared* across provinces — one climate–malaria relationship
+coefficients are *shared* across provinces, one climate–malaria relationship
 applied everywhere. This is a direct translation of the original "panel method"
-ordinary-least-squares fit. Frame it explicitly as the *simplest* model — one set
+ordinary-least-squares fit. Frame it explicitly as the *simplest* model, one set
 of coefficients for the whole country. Part 6 then pushes it forward under CMIP6 to
 project future cases; the optional SEIRS section at the end of this session is the
 more scientifically sound alternative (per-province transmission) for those who want
@@ -1016,17 +1024,17 @@ a mechanistic model.
 :::
 
 We now link climate to cases directly with a simple statistical model, pooling all
-provinces. We use a **panel method** — the same approach used to learn the impact
+provinces. We use a **panel method**, the same approach used to learn the impact
 of temperature and rainfall on the gross domestic product of the world's economies
 ([Burke, Hsiang & Miguel, *Nature*, 2015](https://www.nature.com/articles/nature15725){target="_blank"})
-— but here applied to learn the impact of temperature and rainfall on the
+, but here applied to learn the impact of temperature and rainfall on the
 month-to-month *change* in infection count. Because these simple panel methods
 cannot account for trends, we first remove the trend by taking the first difference,
 then standardise each province by its own mean and standard deviation over time.
 Temperature and rainfall enter as themselves and squared, allowing a non-linear
 (hump-shaped) response, with one shared relationship across provinces. Because we
 model the first difference (the "integrated" step) and reconstruct the level by a
-cumulative sum, this is an **ARIMA-style** model — more precisely an autoregressive
+cumulative sum, this is an **ARIMA-style** model, more precisely an autoregressive
 model with exogenous inputs (ARX), with temperature and rainfall as the exogenous
 climate drivers (hence `arx_fit` below).
 
@@ -1119,7 +1127,7 @@ for (i in seq_len(nrow(cases_mat))) {
 ```{r verify-export, echo=FALSE, message=FALSE}
 # Save this fit's actual outputs to the shared outputs/ folder, so they can be
 # compared directly against the Python notebook's saved outputs (see
-# python_workflow/compare.R). Instrumentation only — it exports the arrays already
+# python_workflow/compare.R). Instrumentation only: it exports the arrays already
 # computed above, it does not recompute anything.
 .odir <- file.path("..", "outputs")
 dir.create(.odir, showWarnings = FALSE, recursive = TRUE)
@@ -1197,12 +1205,12 @@ climate values before trusting such a projection.**
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Solutions for Part 5 — click to reveal (try the questions first)
+## Solutions for Part 5: click to reveal (try the questions first)
 
 **5.1** The squared terms allow a *hump-shaped* (unimodal) response: cases rising
 with temperature or rainfall up to an optimum and then falling. This is
 biologically sensible because mosquito survival, biting, and parasite development
-each have thermal optima, and both drought and flushing rains can reduce breeding —
+each have thermal optima, and both drought and flushing rains can reduce breeding,
 so the response to climate is rarely monotonic.
 
 **5.2** Provinces differ enormously in population and case numbers. Pooling raw
@@ -1213,8 +1221,8 @@ reflect the climate relationship, not province size.
 
 **5.3** The model tends to capture the broad seasonal rise and fall but misses
 sharp peaks, sudden outbreaks, and province-specific idiosyncrasies. Malaria is
-also driven by non-climate factors — interventions (bed nets, spraying), human
-movement and importation, drug resistance, health-system reporting changes — none
+also driven by non-climate factors: interventions (bed nets, spraying), human
+movement and importation, drug resistance, health-system reporting changes, none
 of which are in a climate-only model.
 
 **5.4** Sensible checks include: are the future climate values within the range the
@@ -1248,7 +1256,7 @@ We now push the fitted model forward. For each climate model and scenario, we
 standardise the future CMIP6 temperature and rainfall using the **historical**
 per-province mean and standard deviation (the same scaling the model was fitted
 with), apply the fitted coefficients to get the predicted month-to-month change in
-cases, and rebuild counts by cumulative sum — seeding from the last observed month.
+cases, and rebuild counts by cumulative sum, seeding from the last observed month.
 
 ::: {.callout-warning}
 ## A projection, not a forecast
@@ -1361,18 +1369,18 @@ result honestly to a decision-maker?**
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Solutions for Part 6 — click to reveal (try the questions first)
+## Solutions for Part 6: click to reveal (try the questions first)
 
 **6.1** The model was fitted on climate standardised by its *historical* mean and
 standard deviation, so the coefficients only make sense on that same scale. If we
 re-standardised the future climate on itself, we would subtract off the very warming
-(or drying/wetting) trend we are trying to project — every period would look
+(or drying/wetting) trend we are trying to project; every period would look
 "average" relative to its own era, and the projected climate signal would vanish. We
 must apply the historical scaling so that a genuinely hotter future shows up as a
 large positive standardised value.
 
-**6.2** Trust the *direction and relative* differences — e.g. that the higher-
-emissions scenario diverges from the lower one, and the ranking of provinces — more
+**6.2** Trust the *direction and relative* differences, e.g. that the higher-
+emissions scenario diverges from the lower one, and the ranking of provinces, more
 than the absolute case numbers, which drift because of the cumulative-sum
 reconstruction. Honest framing to a decision-maker: "this shows how a climate-driven
 statistical model *responds* to two emissions futures; the shape and the gap between
@@ -1385,25 +1393,25 @@ a forecast, and a mechanistic model would be needed for credible long-range numb
 # Optional: a mechanistic SEIRS alternative
 
 ::: speaker-note
-This whole section is optional and more advanced — it lives behind an expandable
+This whole section is optional and more advanced: it lives behind an expandable
 box so it does not interrupt the main flow, and so Session 3 can stay a clean group
 discussion. Run it only if the group powers through Parts 1–6 with time to spare, or
 point interested participants to it afterwards. It reuses the case and climate data
 already built above (no re-loading), fits a compartmental transmission model, and
 doubles as a **worked code base for fitting a transmission model directly**. Keep the
-optimiser budget small for a live demo — the fit is deliberately not run to
+optimiser budget small for a live demo: the fit is deliberately not run to
 convergence, and every number is illustrative.
 :::
 
 ::: {.callout-note collapse="true"}
-## Why an SEIRS model? — optional and more advanced (click to expand)
+## Why an SEIRS model? (optional and more advanced; click to expand)
 
 The model in Parts 5–6 is deliberately the simplest thing that works: one shared
 statistical relationship between climate and the month-to-month *change* in cases. A
 mechanistic **SEIRS** model is the more biologically structured alternative. Instead
-of regressing cases on climate, it represents the disease process itself — people
+of regressing cases on climate, it represents the disease process itself: people
 move through Susceptible → Exposed → Infected → Recovered → Susceptible compartments
-— and lets **climate drive the transmission rate**. That buys three things the
+, and lets **climate drive the transmission rate**. That buys three things the
 statistical model cannot: per-province transmission with *shared* natural-history
 parameters (so provinces borrow strength); built-in saturation and waning immunity
 (so it cannot produce the negative or runaway counts a differenced model can); and a
@@ -1423,12 +1431,12 @@ and reported cases modelled as
 $\text{cases}_p(t) \sim \text{Poisson}(\text{scale}_p \cdot \sigma E_p(t))$, fitted by
 maximum likelihood.
 
-**Caveats — read before trusting any number.** The climate covariates stand in for
+**Caveats: read before trusting any number.** The climate covariates stand in for
 missing mosquito data; there are no population denominators (so `scale` absorbs
 population size and reporting rate); the natural-history parameters
 ($\sigma,\gamma,\omega$) are fitted freely rather than fixed to published
 vivax/falciparum biology; the two parasite species are pooled; and the optimiser uses
-a small iteration budget so it runs quickly — it is **not** run to convergence. Treat
+a small iteration budget so it runs quickly; it is **not** run to convergence. Treat
 every output as illustrative of method, not as an estimate.
 
 **The data.** The SEIRS reuses the case matrix and per-province climate already built
@@ -1446,10 +1454,10 @@ cat(sprintf("SEIRS inputs: %d provinces x %d months, %.0f total cases\n",
 
 The model is built up in five small pieces below, then fitted. Read them in order.
 
-**Step 1 — the transmission dynamics (the ODE right-hand side).** This is the SEIRS
+**Step 1: the transmission dynamics (the ODE right-hand side).** This is the SEIRS
 model itself: the instantaneous rate of change of each compartment. `state` is a
-5 × n matrix — one column per province, rows S, E, I, R, and C (a running count of
-new infections) — so everything is vectorised over provinces at once.
+5 × n matrix, one column per province, rows S, E, I, R, and C (a running count of
+new infections), so everything is vectorised over provinces at once.
 
 ```{r seirs-rhs, echo=TRUE, eval=TRUE}
 SUBSTEPS_PER_MONTH <- 20   # RK4 sub-steps per month
@@ -1464,7 +1472,7 @@ seirs_rhs <- function(state, beta, sigma, gamma, omega) {
 }
 ```
 
-**Step 2 — simulating it forward (fixed-step RK4).** We integrate the ODE month by
+**Step 2: simulating it forward (fixed-step RK4).** We integrate the ODE month by
 month using a fixed-step Runge–Kutta (RK4) scheme with `SUBSTEPS_PER_MONTH` steps per
 month, for all provinces simultaneously. A burn-in lets the model settle before we
 record anything, and we reset the accumulator `C` at the start of each month so that
@@ -1501,7 +1509,7 @@ simulate_incidence <- function(beta, sigma, gamma, omega,
 }
 ```
 
-**Step 3 — unpacking the parameters.** The optimiser works in an unconstrained,
+**Step 3: unpacking the parameters.** The optimiser works in an unconstrained,
 log-transformed space so that rates stay positive. This turns the flat parameter
 vector back into named, natural-scale quantities: the shared natural-history rates,
 the two climate sensitivities, and the per-province baseline transmission `beta0` and
@@ -1515,9 +1523,9 @@ unpack_params <- function(params, n) {
 }
 ```
 
-**Step 4 — the likelihood.** Given a parameter vector, build the climate-forced
+**Step 4: the likelihood.** Given a parameter vector, build the climate-forced
 transmission rate `beta_t`, simulate the incidence, and score it against the observed
-counts with a Poisson negative log-likelihood — the quantity the optimiser minimises.
+counts with a Poisson negative log-likelihood, the quantity the optimiser minimises.
 
 ```{r seirs-nll, echo=TRUE, eval=TRUE}
 neg_log_lik <- function(params, cases, ztemp, zrain) {
@@ -1530,7 +1538,7 @@ neg_log_lik <- function(params, cases, ztemp, zrain) {
 }
 ```
 
-**Step 5 — sensible starting values.** A reasonable initial guess for the optimiser:
+**Step 5: sensible starting values.** A reasonable initial guess for the optimiser:
 incubation ~0.5 months, infectious ~1 month, immunity ~6 months, no climate effect to
 begin with, and per-province baselines scaled to each province's mean caseload.
 
@@ -1543,10 +1551,10 @@ default_x0 <- function(cases) {
 }
 ```
 
-**Step 6 — fit.** Now minimise the negative log-likelihood with a bounded optimiser
+**Step 6: fit.** Now minimise the negative log-likelihood with a bounded optimiser
 (`L-BFGS-B`). The `lower`/`upper` vectors keep every parameter in a biologically
-plausible range — incubation/infectious periods between ~0.05 and 3 months, immunity
-between 0.5 and 36 months, the climate sensitivities within ±2 — and `maxit` is kept
+plausible range (incubation/infectious periods between ~0.05 and 3 months, immunity
+between 0.5 and 36 months, the climate sensitivities within ±2), and `maxit` is kept
 deliberately small so it finishes quickly (raise it for a real fit).
 
 ```{r seirs-fit, echo=TRUE, eval=TRUE}
@@ -1564,7 +1572,7 @@ upper <- c(log(1/0.05), log(1/0.05), log(1/0.5), 2, 2,
 fit <- optim(x0, neg_log_lik, method = "L-BFGS-B",
              lower = lower, upper = upper,
              cases = cases_mat, ztemp = ztemp, zrain = zrain,
-             control = list(maxit = 200, ndeps = rep(1e-8, length(x0))))
+             control = list(maxit = 20, ndeps = rep(1e-8, length(x0)))) 
 p <- unpack_params(fit$par, n)
 
 cat(sprintf("convergence code=%d  nll=%.1f\n", fit$convergence, fit$value))
@@ -1574,7 +1582,7 @@ cat(sprintf("immunity duration 1/omega = %.2f months\n", 1/p$omega))
 cat(sprintf("climate sensitivity b_temp = %+.3f  b_rain = %+.3f\n", p$b_temp, p$b_rain))
 ```
 
-**Step 7 — diagnostics.** Finally, rebuild the fitted incidence from the estimated
+**Step 7: diagnostics.** Finally, rebuild the fitted incidence from the estimated
 parameters and compare it, province by province, against the observed monthly counts.
 
 ```{r seirs-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
@@ -1619,12 +1627,12 @@ jsonlite::write_json(list(
 
 **A note on identifiability.** Fitting this exact model in both R and Python is
 instructive. The two reach the *same* likelihood and predict essentially the same
-cases — per-province annual totals agree to about 0.3% — yet their fitted `beta0`
+cases (per-province annual totals agree to about 0.3%), yet their fitted `beta0`
 and `scale` differ by a couple of percent. That is a textbook symptom of
 **non-identifiability**: `beta0` (baseline transmission) and `scale` (population ×
 reporting rate) trade off to set the case *level*, so the optimiser can shuffle
 magnitude between them, and the natural-history rates ($\sigma,\gamma,\omega$) are
-only weakly constrained by the data. It is concrete evidence for the warning above —
+only weakly constrained by the data. It is concrete evidence for the warning above:
 trust the model's *predictions* and the climate sensitivities `b_temp`/`b_rain`, not
 the individual parameter values. (This is why the verification in
 `python_workflow/compare.R` checks the fitted incidence and climate coefficients, and
@@ -1633,7 +1641,7 @@ treats the level parameters as illustrative.)
 **Discussion (SEIRS): the statistical model (Parts 5–6) and this mechanistic model
 both link climate to malaria. What can the mechanistic model tell you that the
 statistical one cannot, and vice versa? And why are the fitted natural-history
-parameters ($\sigma,\gamma,\omega$) a weakness here — how would you fix it?**
+parameters ($\sigma,\gamma,\omega$) a weakness here, and how would you fix it?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
