@@ -153,7 +153,7 @@ This list is the data we found available, not the initial list assembled.
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Notes for these prompts — click to reveal (try them first)
+## Suggested answer: click to reveal (try to answer yourself first)
 
 There is no single right answer.
 
@@ -168,15 +168,12 @@ data in Thailand at the same period as the malaria incidence data.
 # **Part 1:** Obtaining the data
 
 ::: speaker-note
-This part is deliberately light on code — it is about *where the data come from*
-and *why each source was chosen*. The original workflow notes are reproduced
-below. Spend a few minutes on the mosquito-data caveat (there is no recent
-mosquito data, which is why climate is used as a proxy for vector dynamics later),
-as it motivates the modelling choices in Parts 4 and 5.
+This part is about *where the data come from* and *why each source was chosen*. 
 :::
 
-The workflow draws on four data sources. Three are used directly in the analysis;
-the fourth (mosquito occurrence) motivates the approach but is not currently used.
+The workflow draws on four data sources. Three are used directly in the 
+analysis; the fourth (mosquito occurrence) motivates the approach but is not 
+currently used.
 
 **1. Malaria case data (surveillance line list).** Individual records of malaria
 blood draws in Thailand, with date, province, district, and result (*P. vivax*
@@ -184,63 +181,118 @@ blood draws in Thailand, with date, province, district, and result (*P. vivax*
 [https://malaria-api.ddc-malaria.org/study/2year/calendar](https://malaria-api.ddc-malaria.org/study/2year/calendar){target="_blank"}.
 Saved as `data/malaria/calendar.json`.
 
-**2. Administrative boundaries (shapefile).** Province (ADM1) boundaries for
-Thailand. Shapefiles contain polygon descriptions of boundaries (countries,
-provinces, districts) and are used to apply operations — such as a spatial average
-— to gridded data over only the region of interest. Downloaded from
-[Open Development Mekong](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"}.
+This is the outcome we're modelling and it comes from the national surveillance 
+system (Thailand's DDC), so it's authoritative and consistent across the whole 
+country. It's openly queryable via the API (no data-sharing agreement for this 
+aggregated endpoint), and it carries date, province, district and species per 
+record. Further, the spatial and temporal resolution align with what we need for
+monthly climate. Alternatives like WHO country-year totals are too coarse, and 
+hospital records aren't openly accessible.
+
+**2. Administrative boundaries (shape files).** The province 
+(ADM1) boundaries for Thailand. Shape files contain polygon descriptions of 
+boundaries (countries, provinces, districts) and are used to apply operations, 
+such as a spatial average, to gridded data over only the region of interest. 
+Downloaded from Open Development Mekong 
+[https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"}.
 Saved under `data/shape_files/tha_admbnda_adm1_rtsd_20190221/`.
 
-**3. Climate reanalysis (ERA5).** Gridded, monthly-averaged 2 m temperature (`2t`)
-and total precipitation (`tp`) — a physically consistent reconstruction of past
-weather used here to *learn* the climate–malaria relationship. The required data
-is already curated for you; additional variables can be downloaded freely from the
-Copernicus Climate Change Service (C3S) Climate Data Store:
-[ERA5 monthly single levels](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"}.
+We need province polygons because cases are reported per province but climate is
+gridded. The polygons are what let us aggregate the grid to the reporting unit. 
+This particular set was chosen because it's the official Thai ADM1 (province) 
+boundaries, so its units and names align with how the surveillance data is 
+reported (name alignment matters: it's why some provinces drop out when names 
+don't match), and it's freely available in a standard GIS format.
+
+**3. Climate reanalysis (ERA5).** Gridded, monthly-averaged 2 m temperature 
+(`2t`) and total precipitation (`tp`). A physically consistent reconstruction of 
+past weather used here to *learn* the climate–malaria relationship. The required
+data is already curated for you; additional variables can be downloaded freely 
+from the Copernicus Climate Change Service (C3S) Climate Data Store, including 
+for the ERA5 monthly single levels used here:
+[https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"}.
 Saved under `data/reanalysis/monthly-averaged/`.
+
+"ERA" is ECMWF Re-Analysis, where ECMWF is the European Centre for Medium-Range 
+Weather Forecasts. The "5" means it's the fifth generation (the lineage runs 
+ERA-15 → ERA-40 → ERA-Interim → ERA5).
+
+Reanalysis rather than weather stations because stations are sparse and gappy, 
+whereas reanalysis gives complete, gap-free, physically consistent fields 
+everywhere, which is essential for giving every province a climate value. ERA5 
+specifically because it's the current state-of-the-art global reanalysis 
+(ECMWF), ~0.25° resolution, well validated, openly available, and it has the 
+variables we want (2 m temperature, total precipitation; based on mosquito 
+physiology) at monthly resolution. It's the de facto standard for climate–health
+work.
 
 **4. Future climate projections (CMIP6).** A multi-model ensemble of monthly
 temperature (`tas`) and precipitation (`pr`) for Thailand under two emissions
-scenarios, SSP1-2.6 and SSP5-8.5 — used to *apply* the learned relationship into
-the future. The data is curated and trimmed to the region for this tutorial;
-additional variables, scenarios, or the full globe can be downloaded freely from
-the same Climate Data Store:
-[CMIP6 projections](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"}.
+scenarios, Shared Socioeconomic Pathways (SSP) 1-2.6 and SSP5-8.5. Used to 
+*project* the learned relationship into the future. The data is curated and 
+trimmed to the region for this case study; additional variables, scenarios, or 
+the full globe can be downloaded freely from the same Climate Data Store, for 
+CMIP6 Projections:
+[https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"}.
 Saved under `data/cmip6/monthly-averaged/`.
 
+Coupled Model Intercomparison Project, and the "6" is the sixth phase. "Coupled"
+refers to coupled atmosphere–ocean climate models. In SP1-2.6, the "1" is the 
+sustainability pathway and "2.6" is the resulting radiative forcing (~2.6 W/m² 
+by 2100, i.e. low warming); in SSP5-8.5, the "5" is the fossil-fuel-intensive 
+pathway and "8.5" is a high forcing (~8.5 W/m², high warming). So the first 
+digit sets the socioeconomic story and the second sets the climate outcome.
+
+These climate projections are used to apply the learned relationship between
+malaria incidence and our chosen weather variables (temperature `2t` and 
+precipitation `tp`). CMIP6 specifically because it's the latest coordinated 
+multi-model generation (the models underpinning IPCC AR6), delivered in a 
+standard, comparable format. So we can use a multi-model ensemble to represent 
+model uncertainty and SSP scenarios to bracket futures. SSP1-2.6 and SSP5-8.5 
+were chosen as a low- and high-emissions pair to show sensitivity to the 
+pathway. It's also regriddable onto the ERA5 grid, so the "learn on reanalysis, 
+apply on projections" step stays consistent.
+
 **On mosquito data (not currently used).** Mosquito occurrence records are
-available from GBIF
-([dataset db4211d6](https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12){target="_blank"}),
+available from GBIF (dataset db4211d6 
+[https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12](https://www.gbif.org/dataset/db4211d6-b480-4bc5-9202-87f2072c4b12){target="_blank"}),
 but there are no samples after 2022, so they do not overlap the 2025–2026 malaria
 data. For now, rather than modelling mosquito populations explicitly, we relate
-malaria to environmental variables directly (the approach taken in Part 5). A
-natural extension is to obtain overlapping mosquito data, learn the influence of
-temperature on the mosquito population, then the impact of that population on
-malaria infections.
+malaria incidence in humans to environmental variables directly (the approach 
+taken in Part 5). Regardless, this is a good, straightforward, way to test a 
+hypothesis that environmental variables such as these are impacting the health 
+outcomes of interest, and potentially which ones. A natural extension is to 
+obtain overlapping mosquito data, learn the influence of temperature on the 
+mosquito population, then the impact of that population on malaria infections 
+via a transmission model.
+
+We explored GBIF data because it's the largest aggregator of open occurrence 
+records, so it's the obvious first place to look for vector data. It's excluded 
+because it gives occurrence, not abundance, and has no records overlapping the 
+2025–26 malaria period.
 
 ::: {.callout-note}
 ## Obtaining the data yourself
 The Copernicus Climate Data Store (ERA5 and CMIP6) requires a free account and,
 for bulk downloads, the CDS API (a `~/.cdsapirc` key file). Because these
-downloads need accounts/API keys and can be large, they are not run as code here —
-the curated subset needed for this tutorial is provided separately in the `data/`
-folder at the repository root.
+downloads need accounts/API keys and can be large, they are not run as code 
+here. Instead, the curated subset needed for this tutorial is provided 
+separately in the `data/` folder at the repository root.
 :::
 
 ## Ideal vs achievable workflows
 
 ::: speaker-note
 This is a key discussion point to raise explicitly with participants: **what you
-*want* to do is constrained by the data you can actually get.** When planning this
-example we had hoped to match local mosquito vector abundance to climate, then feed
-mosquito population estimates directly into a transmission model — the most
-biologically defensible path. No overlapping abundance data existed, so we fell
-back to a simpler, biologically less correct SEIRS model in which climate forces
-transmission directly (the optional section at the end of this session), and a
-direct statistical model of incidence (Part 5). The general principle worth landing:
-prefer to model the *known*
-climate-sensitive mechanism — the mosquito — explicitly, **wherever you have the
-data to do it**; only drop to simpler models as data availability forces you to.
+*want* to do is constrained by the data you can actually get.** When planning 
+this example we had hoped to match local mosquito vector abundance to climate, 
+then feed mosquito population estimates directly into a transmission model. We
+couldn't find overlapping abundance data, so we changed our approach, to the
+direct statistical model of incidence (Part 5), and a simple SEIRS model in 
+which climate forces transmission directly (the optional section at the end of 
+this session). The best approach is to model the *known* climate-sensitive 
+mechanism (in this case, the mosquito population) explicitly. But data 
+availability is a key driver of the refined research question in most modelling. 
 :::
 
 The right workflow is rarely the most sophisticated one — it is the most
