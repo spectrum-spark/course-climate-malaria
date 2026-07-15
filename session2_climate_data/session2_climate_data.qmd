@@ -382,8 +382,6 @@ We start from the surveillance line list: one row per blood draw, with a date,
 province, district, and result. We read it, parse the dates, and aggregate to
 monthly counts.
 
-**Run the code below, then work through the questions underneath it.**
-
 First read in the data from the json file.
 ```{r part2-read, echo=TRUE, eval=TRUE}
 library(jsonlite)
@@ -599,58 +597,26 @@ with climate would dominate. A potential future direction to explore.
 # **Part 3:** Environmental variables (reanalysis)
 
 ::: speaker-note
-This part links gridded climate to the administrative units that malaria is
-reported in. The conceptual step to draw out is the *spatial mismatch*: climate
-comes on a regular latitude–longitude grid, but cases come per province. We
-resolve it in two steps. First, **strict cell-centre assignment**: a grid cell
-belongs to the province whose polygon contains the cell's *centre* (a
-point-in-polygon test, matching the `regionmask` package). Second, the province's
-cells are combined with an **area-weighted average**, each cell weighted by cos of
-its latitude because grid cells shrink towards the poles; this is the standard
-spatial mean (see the aside on population weighting).
-Participants often ask why we keep temperature in Kelvin during standardisation:
-because a constant offset (Kelvin vs Celsius) does not change a standardised
-(z-scored) series, so it only matters for the plots, where we convert to °C.
+The concept to focus on here is the *spatial mismatch*: climate comes on a 
+regular grid, cases come per province, and the two steps below bridge it. 
+
+One detail that is not obvious from the code: temperature stays in Kelvin 
+through standardisation because a constant offset (Kelvin vs Celsius) does not 
+change a standardised (z-scored) series, so it only matters for the plots, where
+we convert to °C.
 :::
 
 Malaria is reported per province, but ERA5 climate comes on a regular grid. To
 link them, we summarise the grid to provinces in two steps: **strict cell-centre
-assignment**, where each grid cell is assigned to the province whose polygon contains
-the cell's centre (a point-in-polygon test with `sf`, matching the
-[`regionmask`](https://regionmask.readthedocs.io){target="_blank"} package), and then
-an **area-weighted average** of those cells, weighting each by cos of its latitude so
-that cells count in proportion to their area.
+assignment**, where each grid cell is assigned to the province whose polygon 
+contains the cell's centre (a point-in-polygon test with `sf`, matching the
+[`regionmask`](https://regionmask.readthedocs.io){target="_blank"} package), and 
+then an **area-weighted average** of those cells, weighting each by cos of its 
+latitude so that cells count in proportion to their area.
 
-::: {.callout-note collapse="true"}
-## Why cos of latitude is the exact area weight
-
-On a regular grid every cell spans the same number of degrees in latitude and
-longitude, but equal degrees are not equal area: meridians converge towards the
-poles, so a cell's east-west width shrinks with latitude while its north-south height
-stays fixed. The area of the cell between latitudes `lat₁` and `lat₂`, over a
-longitude span `Δλ` on a sphere of radius `R`, is
-`A = R² · Δλ · (sin(lat₂) - sin(lat₁))`. For a cell of height `Δlat` centred at
-latitude `lat`, the identity
-`sin(lat + Δlat/2) - sin(lat - Δlat/2) = 2 · cos(lat) · sin(Δlat/2)` turns this into
-`A = R² · Δλ · 2 · sin(Δlat/2) · cos(lat)`. Every factor except `cos(lat)` is
-identical for all cells on a regular grid, and constant factors cancel in a
-normalised weighted mean, so weighting each cell by cos of its centre latitude
-reproduces the true area weighting exactly. It is not a small-angle approximation: it
-is exact for a sphere. The Earth's slight oblateness shifts cell areas by a fraction
-of a percent, far below anything that matters at this provincial scale.
-:::
-
-::: {.callout-note appearance="minimal"}
-We weight each cell by its area (cos of latitude), the standard spatial mean. For
-climate and health work an even better choice is **population-density weighting**,
-which captures the climate where people actually live. That matters most for
-countries with very uneven populations (for example Australia, where most people are
-concentrated in a few coastal cities); at Thailand's provincial scale the difference
-is small, so we keep area-weighting here.
-:::
-
-**Run the code below, then work through the questions.**
-
+First load the shape files and check that the surveillance province names match 
+the shapefile's ADM1_EN names. Keep only the selected provinces that are present 
+in the boundaries. Report any that are dropped so name mismatches are visible.
 ```{r part3-shape, echo=TRUE, eval=TRUE}
 library(sf)
 library(terra)
@@ -663,23 +629,27 @@ shape_file <- st_read(
   quiet = TRUE
 )
 region_names <- shape_file$ADM1_EN
+
+# Preview what we have loaded ---------------------------------------------
+knitr::kable(head(shape_file, 5))      # the first 5 rows as a clean table in quarto
+
 cat("Number of provinces in shapefile:", length(region_names), "\n")
 
-# The surveillance province names must match the shapefile's ADM1_EN names to be
-# mapped. Keep only the selected provinces that are present in the boundaries
-# (mirrors the original workflow, which reduces the province list to those found
-# in the shapefile). Report any that are dropped so name mismatches are visible.
 missing <- setdiff(selected_provinces, region_names)
 if (length(missing))
-  message("Provinces not matched in shapefile and dropped: ",
-          paste(missing, collapse = ", "))
+  cat("Provinces not matched in shapefile and dropped: ",
+          paste(missing, collapse = ", "), "\n")
+
 selected_provinces <- selected_provinces[selected_provinces %in% region_names]
 cat("Provinces carried forward (matched to boundaries):",
     length(selected_provinces), "\n")
 ```
 
+Next, read the ERA5 monthly reanalysis: one netCDF file per month for 2 m
+temperature (`2t`) and for total precipitation (`tp`), cropped to the Thailand 
+region.
+
 ```{r part3-reanalysis, echo=TRUE, eval=TRUE}
-# ERA5 monthly reanalysis: 2 m temperature (2t -> t2m) and precip (tp) -----
 # One netCDF file per month; sorting the file paths puts them in time order.
 tas_files <- sort(list.files(
   file.path(data_dir, "reanalysis", "monthly-averaged", "2t"),
@@ -691,7 +661,7 @@ pr_files <- sort(list.files(
 tas_r <- rast(tas_files)   # temperature, one layer per month (Kelvin)
 pr_r  <- rast(pr_files)    # total precipitation, one layer per month (metres)
 
-# Restrict to the Thailand region used in the original workflow
+# Restrict to the Thailand region 
 region_ext <- ext(97, 108, 5, 22)
 tas_r <- crop(tas_r, region_ext)
 pr_r  <- crop(pr_r,  region_ext)
@@ -704,6 +674,9 @@ clim_months <- month_from_file(tas_files)
 cat("Reanalysis covers", length(clim_months), "months:",
     format(min(clim_months)), "to", format(max(clim_months)), "\n")
 ```
+
+As a quick check that the data cover the right region, map the time-mean 
+temperature and rainfall with the province boundaries drawn on top.
 
 ```{r part3-maps, echo=TRUE, eval=TRUE, fig.width=11, fig.height=5}
 # Map of the time-mean temperature and rainfall over the region -----------
@@ -731,16 +704,14 @@ m_r <- ggplot(map_df_r, aes(x, y, fill = value)) +
   labs(title = "Mean rainfall", x = "lon", y = "lat") +
   theme_bw()
 
-m_t + m_r
+print(m_t + m_r)
 ```
 
-```{r part3-extract, echo=TRUE, eval=TRUE}
-# Assign each grid cell to a province by STRICT CELL-CENTRE assignment --------
-# A cell belongs to the province whose polygon contains the cell's *centre*, and
-# the provincial value is the simple mean over those cells. This reproduces the
-# standard Python geospatial workflow used in the original analysis (the
-# `regionmask` package), rather than relying on the raster library's own polygon
-# extraction, whose boundary handling can differ slightly.
+Now assign each grid cell to a province and take the area-weighted provincial mean
+for every month, giving one temperature and one rainfall series per province.
+
+```{r part3-extract, echo=TRUE, eval=TRUE, fig.width=6, fig.height=7}
+# Assign each grid cell to the province whose polygon contains its *centre*.
 grid_xy  <- terra::xyFromCell(tas_r, seq_len(terra::ncell(tas_r)))
 grid_pts <- sf::st_as_sf(as.data.frame(grid_xy), coords = c("x", "y"),
                          crs = sf::st_crs(shape_file))
@@ -749,11 +720,19 @@ cell_region <- vapply(within,
                       function(h) if (length(h)) h[1] else NA_integer_,
                       integer(1))
 
-# Provincial mean for every layer (time step), area-weighted by cell size. Grid
-# cells shrink towards the poles, so each cell is weighted by cos(latitude); this is
-# the standard, physically correct spatial average. The cell assignment and weights
-# are shared by the reanalysis and (after resampling) the CMIP data, so they are
-# reused in Part 4.
+# Check the assignment: colour each grid cell by the province it landed in.
+assign_df <- data.frame(x = grid_xy[, 1], y = grid_xy[, 2], province_id = cell_region)
+print(ggplot(subset(assign_df, !is.na(province_id)), aes(x, y, fill = province_id)) +
+  geom_raster() +
+  geom_sf(data = shape_file, fill = NA, colour = "grey20",
+          linewidth = 0.2, inherit.aes = FALSE) +
+  scale_fill_viridis_c(guide = "none") +
+  coord_sf(expand = FALSE) +
+  labs(title = "Grid cells coloured by assigned province", x = "lon", y = "lat") +
+  theme_bw())
+
+# Provincial means, area-weighted by cos(latitude); see technical note.
+# The assignment and weights are reused for the CMIP data in Part 4.
 cell_w <- cos(grid_xy[, 2] * pi / 180)                    # per-cell area weight (cos latitude)
 region_means <- function(r) {
   vals <- terra::values(r)                                # ncell x nlayer
@@ -787,31 +766,135 @@ clim_long <- to_long(tas_prov, "temp_k") %>%
   mutate(temp_c = temp_k - 273.15) %>%
   filter(province_en %in% selected_provinces)
 
-print(head(clim_long))
+knitr::kable(head(clim_long))
 ```
 
+::: {.callout-note collapse="true"}
+## Technical note: Why cos of latitude is the exact area weight
+
+A grid cell's area is its north-south height times its east-west width. On a regular
+grid the height is the same for every cell (a fixed step in latitude is a fixed
+distance $R\,\Delta\theta$ along the surface), so all the variation is in the width.
+The width shrinks towards the poles, because the meridians (lines of longitude)
+converge: at latitude $\theta$ the circle of latitude has radius $R\cos\theta$, not
+the full $R$.
+
+```{=html}
+<svg viewBox="0 0 420 300" width="100%" style="max-width:420px;height:auto;display:block;margin:0.6rem auto" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cross-section of a globe: at latitude theta the circle of latitude has radius R times cosine theta, smaller than the equator's radius R.">
+  <circle cx="200" cy="160" r="105" fill="#eaf2fb" stroke="#274b6d" stroke-width="1.5"/>
+  <line x1="200" y1="47" x2="200" y2="273" stroke="#274b6d" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="200" y="40" text-anchor="middle" font-size="11" fill="#274b6d">pole</text>
+  <ellipse cx="200" cy="160" rx="105" ry="24" fill="none" stroke="#274b6d" stroke-width="1" stroke-dasharray="3 3"/>
+  <text x="310" y="160" font-size="11" fill="#274b6d">equator (radius R)</text>
+  <ellipse cx="200" cy="86" rx="74" ry="13" fill="none" stroke="#b2182b" stroke-width="1.7"/>
+  <line x1="200" y1="160" x2="274" y2="86" stroke="#274b6d" stroke-width="1.6"/>
+  <text x="248" y="120" font-size="13" fill="#274b6d" font-style="italic">R</text>
+  <line x1="200" y1="86" x2="274" y2="86" stroke="#b2182b" stroke-width="2.4"/>
+  <circle cx="274" cy="86" r="3.4" fill="#b2182b"/>
+  <text x="282" y="84" font-size="12.5" fill="#b2182b" font-style="italic">P</text>
+  <text x="237" y="79" font-size="12.5" fill="#b2182b" text-anchor="middle">R cos &#952;</text>
+  <text x="118" y="89" font-size="11" fill="#b2182b" text-anchor="end">circle of latitude &#952;</text>
+  <line x1="120" y1="86" x2="128" y2="86" stroke="#b2182b" stroke-width="1"/>
+  <line x1="200" y1="160" x2="305" y2="160" stroke="#274b6d" stroke-width="1" stroke-dasharray="2 2"/>
+  <text x="226" y="153" font-size="13" fill="#274b6d" font-style="italic">&#952;</text>
+  <path d="M200,94 L208,94 L208,86" fill="none" stroke="#274b6d" stroke-width="1"/>
+  <path d="M258,86 A16 16 0 0 0 262.6,97.3" fill="none" stroke="#274b6d" stroke-width="1"/>
+  <text x="252" y="101" font-size="12" fill="#274b6d" font-style="italic">&#952;</text>
+</svg>
+```
+
+Why $R\cos\theta$? In the cross-section above, the line from the centre out to $P$ is
+a radius of the sphere, so it has length $R$, exactly like the equator's radius.
+Because the equator and the $R\cos\theta$ segment are parallel, the angle at $P$
+equals the latitude $\theta$ (right angle marked where $R\cos\theta$ meets the axis),
+so in that right triangle $R\cos\theta$ is the side adjacent to $\theta$. A fixed
+longitude span $\Delta\lambda$ therefore covers an east-west distance
+$R\cos\theta\,\Delta\lambda$.
+
+Now take a whole cell, bounded by latitudes $\theta_1$ and $\theta_2$ and a longitude
+span $\Delta\lambda$:
+
+```{=html}
+<!-- Second diagram. To reproduce: run `python3 make_area_weight_diagram.py` (in this folder); it writes area_weight_diagram.svg, then paste that file's <svg>...</svg> in here. Do not hand-edit the path data. -->
+<svg viewBox="0 0 430 320" width="100%" style="max-width:430px;height:auto;display:block;margin:0.6rem auto" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A globe with two meridians running pole to pole that bound a highlighted grid cell between latitudes theta-one and theta-two spanning delta-lambda in longitude.">
+<circle cx="205" cy="158" r="105" fill="#eaf2fb" stroke="#274b6d" stroke-width="1.5"/>
+<path d="M205.0,202.4 L209.6,202.3 L214.2,202.2 L218.7,202.0 L223.2,201.7 L227.7,201.3 L232.2,200.9 L236.6,200.3 L240.9,199.7 L245.2,199.0 L249.4,198.2 L253.5,197.4 L257.5,196.4 L261.4,195.4 L265.2,194.3 L268.9,193.2 L272.5,192.0 L275.9,190.7 L279.2,189.4 L282.4,188.0 L285.4,186.5 L288.3,185.0 L291.0,183.5 L293.6,181.8 L295.9,180.2 L298.1,178.5 L300.2,176.8 L302.0,175.0 L303.7,173.2 L305.1,171.3 L306.4,169.5 L307.5,167.6 L308.4,165.7 L309.1,163.8 L309.6,161.9 L309.9,159.9 L310.0,158.0" fill="none" stroke="#9bb0c4" stroke-width="1"/><path d="M309.9,156.1 L309.6,154.1 L309.1,152.2 L308.4,150.3 L307.5,148.4 L306.4,146.5 L305.1,144.7 L303.7,142.8 L302.0,141.0 L300.2,139.2 L298.1,137.5 L295.9,135.8 L293.6,134.2 L291.0,132.5 L288.3,131.0 L285.4,129.5 L282.4,128.0 L279.2,126.6 L275.9,125.3 L272.5,124.0 L268.9,122.8 L265.2,121.7 L261.4,120.6 L257.5,119.6 L253.5,118.6 L249.4,117.8 L245.2,117.0 L240.9,116.3 L236.6,115.7 L232.2,115.1 L227.7,114.7 L223.2,114.3 L218.7,114.0 L214.2,113.8 L209.6,113.7 L205.0,113.6 L200.4,113.7 L195.8,113.8 L191.3,114.0 L186.8,114.3 L182.3,114.7 L177.8,115.1 L173.4,115.7 L169.1,116.3 L164.8,117.0 L160.6,117.8 L156.5,118.6 L152.5,119.6 L148.6,120.6 L144.8,121.7 L141.1,122.8 L137.5,124.0 L134.1,125.3 L130.8,126.6 L127.6,128.0 L124.6,129.5 L121.7,131.0 L119.0,132.5 L116.4,134.2 L114.1,135.8 L111.9,137.5 L109.8,139.2 L108.0,141.0 L106.3,142.8 L104.9,144.7 L103.6,146.5 L102.5,148.4 L101.6,150.3 L100.9,152.2 L100.4,154.1 L100.1,156.1 L100.0,158.0" fill="none" stroke="#9bb0c4" stroke-width="1" stroke-dasharray="2 3" opacity="0.5"/><path d="M100.1,159.9 L100.4,161.9 L100.9,163.8 L101.6,165.7 L102.5,167.6 L103.6,169.5 L104.9,171.3 L106.3,173.2 L108.0,175.0 L109.8,176.8 L111.9,178.5 L114.1,180.2 L116.4,181.8 L119.0,183.5 L121.7,185.0 L124.6,186.5 L127.6,188.0 L130.8,189.4 L134.1,190.7 L137.5,192.0 L141.1,193.2 L144.8,194.3 L148.6,195.4 L152.5,196.4 L156.5,197.4 L160.6,198.2 L164.8,199.0 L169.1,199.7 L173.4,200.3 L177.8,200.9 L182.3,201.3 L186.8,201.7 L191.3,202.0 L195.8,202.2 L200.4,202.3 L205.0,202.4" fill="none" stroke="#9bb0c4" stroke-width="1"/>
+<path d="M205.0,176.2 L209.4,176.2 L213.8,176.1 L218.2,175.9 L222.6,175.6 L227.0,175.2 L231.2,174.8 L235.5,174.2 L239.7,173.6 L243.8,173.0 L247.9,172.2 L251.8,171.4 L255.7,170.5 L259.5,169.5 L263.2,168.5 L266.7,167.4 L270.2,166.2 L273.5,165.0 L276.7,163.7 L279.8,162.3 L282.7,160.9 L285.5,159.5 L288.1,158.0 L290.5,156.4 L292.8,154.8 L295.0,153.2 L296.9,151.5 L298.7,149.8 L300.3,148.0 L301.7,146.3 L303.0,144.5 L304.0,142.6 L304.9,140.8 L305.6,139.0 L306.0,137.1 L306.3,135.2 L306.4,133.4 L306.3,131.5 L306.0,129.6" fill="none" stroke="#6b8cae" stroke-width="1.2"/><path d="M305.6,127.8 L304.9,125.9 L304.0,124.1 L303.0,122.3 L301.7,120.5 L300.3,118.7 L298.7,117.0 L296.9,115.3 L295.0,113.6 L292.8,111.9 L290.5,110.3 L288.1,108.8 L285.5,107.3 L282.7,105.8 L279.8,104.4 L276.7,103.1 L273.5,101.8 L270.2,100.5 L266.7,99.4 L263.2,98.3 L259.5,97.2 L255.7,96.2 L251.8,95.4 L247.9,94.5 L243.8,93.8 L239.7,93.1 L235.5,92.5 L231.3,92.0 L227.0,91.5 L222.6,91.2 L218.2,90.9 L213.8,90.7 L209.4,90.5 L205.0,90.5 L200.6,90.5 L196.2,90.7 L191.8,90.9 L187.4,91.2 L183.0,91.5 L178.8,92.0 L174.5,92.5 L170.3,93.1 L166.2,93.8 L162.1,94.5 L158.2,95.4 L154.3,96.2 L150.5,97.2 L146.8,98.3 L143.3,99.4 L139.8,100.5 L136.5,101.8 L133.3,103.1 L130.2,104.4 L127.3,105.8 L124.5,107.3 L121.9,108.8 L119.5,110.3 L117.2,111.9 L115.0,113.6 L113.1,115.3 L111.3,117.0 L109.7,118.7 L108.3,120.5 L107.0,122.3 L106.0,124.1 L105.1,125.9 L104.4,127.8" fill="none" stroke="#6b8cae" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/><path d="M104.0,129.6 L103.7,131.5 L103.6,133.4 L103.7,135.2 L104.0,137.1 L104.4,139.0 L105.1,140.8 L106.0,142.6 L107.0,144.5 L108.3,146.3 L109.7,148.0 L111.3,149.8 L113.1,151.5 L115.0,153.2 L117.2,154.8 L119.5,156.4 L121.9,158.0 L124.5,159.5 L127.3,160.9 L130.2,162.3 L133.3,163.7 L136.5,165.0 L139.8,166.2 L143.3,167.4 L146.8,168.5 L150.5,169.5 L154.3,170.5 L158.2,171.4 L162.1,172.2 L166.2,173.0 L170.3,173.6 L174.5,174.2 L178.8,174.8 L183.0,175.2 L187.4,175.6 L191.8,175.9 L196.2,176.1 L200.6,176.2 L205.0,176.2" fill="none" stroke="#6b8cae" stroke-width="1.2"/>
+<path d="M205.0,117.0 L208.1,116.9 L211.1,116.9 L214.2,116.7 L217.2,116.5 L220.2,116.3 L223.2,116.0 L226.1,115.6 L229.0,115.2 L231.9,114.7 L234.7,114.2 L237.4,113.6 L240.1,113.0 L242.7,112.3 L245.3,111.6 L247.8,110.8 L250.2,110.0 L252.5,109.2 L254.7,108.3 L256.8,107.3 L258.8,106.4 L260.7,105.4 L262.6,104.3 L264.3,103.2 L265.8,102.1 L267.3,101.0 L268.7,99.8 L269.9,98.6 L271.0,97.4 L272.0,96.2 L272.9,95.0 L273.6,93.7 L274.2,92.4 L274.7,91.2 L275.0,89.9 L275.2,88.6 L275.3,87.3 L275.2,86.0 L275.0,84.7 L274.7,83.4 L274.2,82.1 L273.6,80.9 L272.9,79.6 L272.0,78.4 L271.0,77.1 L269.9,75.9 L268.7,74.7 L267.3,73.6 L265.8,72.4" fill="none" stroke="#6b8cae" stroke-width="1.2"/><path d="M264.3,71.3 L262.6,70.2 L260.7,69.2 L258.8,68.2 L256.8,67.2 L254.7,66.3 L252.5,65.4 L250.2,64.5 L247.8,63.7 L245.3,63.0 L242.7,62.2 L240.1,61.6 L237.4,60.9 L234.7,60.4 L231.9,59.8 L229.0,59.4 L226.1,59.0 L223.2,58.6 L220.2,58.3 L217.2,58.0 L214.2,57.8 L211.1,57.7 L208.1,57.6 L205.0,57.6 L201.9,57.6 L198.9,57.7 L195.8,57.8 L192.8,58.0 L189.8,58.3 L186.8,58.6 L183.9,59.0 L181.0,59.4 L178.1,59.8 L175.3,60.4 L172.6,60.9 L169.9,61.6 L167.3,62.2 L164.7,63.0 L162.2,63.7 L159.8,64.5 L157.5,65.4 L155.3,66.3 L153.2,67.2 L151.2,68.2 L149.3,69.2 L147.4,70.2 L145.7,71.3" fill="none" stroke="#6b8cae" stroke-width="1.2" stroke-dasharray="2 3" opacity="0.5"/><path d="M144.2,72.4 L142.7,73.6 L141.3,74.7 L140.1,75.9 L139.0,77.1 L138.0,78.4 L137.1,79.6 L136.4,80.9 L135.8,82.1 L135.3,83.4 L135.0,84.7 L134.8,86.0 L134.7,87.3 L134.8,88.6 L135.0,89.9 L135.3,91.2 L135.8,92.4 L136.4,93.7 L137.1,95.0 L138.0,96.2 L139.0,97.4 L140.1,98.6 L141.3,99.8 L142.7,101.0 L144.2,102.1 L145.7,103.2 L147.4,104.3 L149.3,105.4 L151.2,106.4 L153.2,107.3 L155.3,108.3 L157.5,109.2 L159.8,110.0 L162.2,110.8 L164.7,111.6 L167.3,112.3 L169.9,113.0 L172.6,113.6 L175.3,114.2 L178.1,114.7 L181.0,115.2 L183.9,115.6 L186.8,116.0 L189.8,116.3 L192.8,116.5 L195.8,116.7 L198.9,116.9 L201.9,116.9 L205.0,117.0" fill="none" stroke="#6b8cae" stroke-width="1.2"/>
+<path d="M205.0,253.2 L203.5,254.1 L202.1,255.0 L200.6,255.8 L199.2,256.6 L197.7,257.3 L196.3,257.9 L194.9,258.4 L193.4,258.9 L192.0,259.3 L190.6,259.7 L189.2,259.9 L187.8,260.1 L186.4,260.3 L185.1,260.3 L183.7,260.3 L182.4,260.2 L181.0,260.1 L179.7,259.9 L178.5,259.6" fill="none" stroke="#274b6d" stroke-width="1.4" stroke-dasharray="2 3" opacity="0.5"/><path d="M177.2,259.2 L175.9,258.8 L174.7,258.3 L173.5,257.7 L172.3,257.1 L171.1,256.4 L170.0,255.6 L168.9,254.8 L167.8,253.9 L166.7,252.9 L165.7,251.9 L164.6,250.8 L163.7,249.6 L162.7,248.4 L161.8,247.1 L160.9,245.8 L160.0,244.4 L159.1,242.9 L158.3,241.4 L157.6,239.8 L156.8,238.2 L156.1,236.5 L155.4,234.7 L154.8,232.9 L154.2,231.1 L153.6,229.2 L153.1,227.2 L152.5,225.2 L152.1,223.2 L151.6,221.1 L151.3,219.0 L150.9,216.8 L150.6,214.6 L150.3,212.3 L150.0,210.1 L149.8,207.7 L149.7,205.4 L149.5,203.0 L149.4,200.6 L149.4,198.1 L149.4,195.6 L149.4,193.1 L149.4,190.6 L149.5,188.0 L149.7,185.5 L149.8,182.9 L150.0,180.3 L150.3,177.7 L150.6,175.0 L150.9,172.4 L151.3,169.7 L151.6,167.1 L152.1,164.4 L152.5,161.7 L153.1,159.0 L153.6,156.4 L154.2,153.7 L154.8,151.0 L155.4,148.3 L156.1,145.7 L156.8,143.0 L157.6,140.4 L158.3,137.7 L159.1,135.1 L160.0,132.5 L160.9,129.9 L161.8,127.4 L162.7,124.8 L163.7,122.3 L164.6,119.8 L165.7,117.3 L166.7,114.9 L167.8,112.5 L168.9,110.1 L170.0,107.7 L171.1,105.4 L172.3,103.1 L173.5,100.9 L174.7,98.7 L175.9,96.5 L177.2,94.4 L178.5,92.3 L179.7,90.3 L181.0,88.3 L182.4,86.4 L183.7,84.5 L185.1,82.6 L186.4,80.9 L187.8,79.1 L189.2,77.4 L190.6,75.8 L192.0,74.3 L193.4,72.7 L194.9,71.3 L196.3,69.9 L197.7,68.6 L199.2,67.3 L200.6,66.1 L202.1,64.9 L203.5,63.9 L205.0,62.8" fill="none" stroke="#274b6d" stroke-width="1.4"/>
+<path d="M205.0,253.2 L206.5,254.1 L207.9,255.0 L209.4,255.8 L210.8,256.6 L212.3,257.3 L213.7,257.9 L215.1,258.4 L216.6,258.9 L218.0,259.3 L219.4,259.7 L220.8,259.9 L222.2,260.1 L223.6,260.3 L224.9,260.3 L226.3,260.3 L227.6,260.2 L229.0,260.1 L230.3,259.9 L231.5,259.6" fill="none" stroke="#274b6d" stroke-width="1.4" stroke-dasharray="2 3" opacity="0.5"/><path d="M232.8,259.2 L234.1,258.8 L235.3,258.3 L236.5,257.7 L237.7,257.1 L238.9,256.4 L240.0,255.6 L241.1,254.8 L242.2,253.9 L243.3,252.9 L244.3,251.9 L245.4,250.8 L246.3,249.6 L247.3,248.4 L248.2,247.1 L249.1,245.8 L250.0,244.4 L250.9,242.9 L251.7,241.4 L252.4,239.8 L253.2,238.2 L253.9,236.5 L254.6,234.7 L255.2,232.9 L255.8,231.1 L256.4,229.2 L256.9,227.2 L257.5,225.2 L257.9,223.2 L258.4,221.1 L258.7,219.0 L259.1,216.8 L259.4,214.6 L259.7,212.3 L260.0,210.1 L260.2,207.7 L260.3,205.4 L260.5,203.0 L260.6,200.6 L260.6,198.1 L260.6,195.6 L260.6,193.1 L260.6,190.6 L260.5,188.0 L260.3,185.5 L260.2,182.9 L260.0,180.3 L259.7,177.7 L259.4,175.0 L259.1,172.4 L258.7,169.7 L258.4,167.1 L257.9,164.4 L257.5,161.7 L256.9,159.0 L256.4,156.4 L255.8,153.7 L255.2,151.0 L254.6,148.3 L253.9,145.7 L253.2,143.0 L252.4,140.4 L251.7,137.7 L250.9,135.1 L250.0,132.5 L249.1,129.9 L248.2,127.4 L247.3,124.8 L246.3,122.3 L245.4,119.8 L244.3,117.3 L243.3,114.9 L242.2,112.5 L241.1,110.1 L240.0,107.7 L238.9,105.4 L237.7,103.1 L236.5,100.9 L235.3,98.7 L234.1,96.5 L232.8,94.4 L231.5,92.3 L230.3,90.3 L229.0,88.3 L227.6,86.4 L226.3,84.5 L224.9,82.6 L223.6,80.9 L222.2,79.1 L220.8,77.4 L219.4,75.8 L218.0,74.3 L216.6,72.7 L215.1,71.3 L213.7,69.9 L212.3,68.6 L210.8,67.3 L209.4,66.1 L207.9,64.9 L206.5,63.9 L205.0,62.8" fill="none" stroke="#274b6d" stroke-width="1.4"/>
+<path d="M151.3,169.7 L154.6,170.6 L158.0,171.4 L161.5,172.1 L165.1,172.8 L168.7,173.4 L172.4,174.0 L176.1,174.5 L179.9,174.9 L183.7,175.3 L187.5,175.6 L191.4,175.8 L195.2,176.0 L199.1,176.2 L203.0,176.2 L207.0,176.2 L210.9,176.2 L214.8,176.0 L218.6,175.8 L222.5,175.6 L226.3,175.3 L230.1,174.9 L233.9,174.5 L237.6,174.0 L241.3,173.4 L244.9,172.8 L248.5,172.1 L252.0,171.4 L255.4,170.6 L258.7,169.7 L258.7,169.7 L258.3,166.6 L257.8,163.5 L257.2,160.4 L256.6,157.3 L256.0,154.2 L255.3,151.1 L254.5,148.0 L253.7,145.0 L252.9,141.9 L252.0,138.8 L251.1,135.8 L250.1,132.8 L249.1,129.8 L248.0,126.8 L247.0,123.9 L245.8,121.0 L244.7,118.1 L243.5,115.3 L242.2,112.5 L242.2,112.5 L239.9,113.0 L237.5,113.6 L235.1,114.1 L232.6,114.6 L230.1,115.0 L227.6,115.4 L225.0,115.7 L222.4,116.0 L219.8,116.3 L217.1,116.5 L214.4,116.7 L211.8,116.8 L209.1,116.9 L206.4,117.0 L203.6,117.0 L200.9,116.9 L198.2,116.8 L195.6,116.7 L192.9,116.5 L190.2,116.3 L187.6,116.0 L185.0,115.7 L182.4,115.4 L179.9,115.0 L177.4,114.6 L174.9,114.1 L172.5,113.6 L170.1,113.0 L167.8,112.5 L167.8,112.5 L166.5,115.3 L165.3,118.1 L164.2,121.0 L163.0,123.9 L162.0,126.8 L160.9,129.8 L159.9,132.8 L158.9,135.8 L158.0,138.8 L157.1,141.9 L156.3,145.0 L155.5,148.0 L154.7,151.1 L154.0,154.2 L153.4,157.3 L152.8,160.4 L152.2,163.5 L151.7,166.6 L151.3,169.7 Z" fill="#f6cccc" fill-opacity="0.8" stroke="#b2182b" stroke-width="1.8"/>
+<circle cx="205.0" cy="62.8" r="2.4" fill="#274b6d"/>
+<text x="205.0" y="52.8" text-anchor="middle" font-size="11" fill="#274b6d">pole</text>
+<text x="97.6" y="137.4" text-anchor="end" font-size="12" fill="#274b6d" font-style="italic">&#952;&#8321;</text>
+<text x="128.7" y="91.3" text-anchor="end" font-size="12" fill="#274b6d" font-style="italic">&#952;&#8322;</text>
+<line x1="167.8" y1="104.5" x2="242.2" y2="104.5" stroke="#b2182b" stroke-width="1.2"/>
+<text x="205.0" y="100.5" text-anchor="middle" font-size="12" fill="#b2182b">&#916;&#955;</text>
+<text x="205.0" y="150.1" text-anchor="middle" font-size="12" fill="#b2182b">area A</text>
+</svg>
+```
+
+The cell is not one rectangle: its width $R\cos\theta\,\Delta\lambda$ keeps shrinking
+from $\theta_1$ up to $\theta_2$. So slice it into thin strips of latitude. A strip at
+latitude $\theta$ has width $R\cos\theta\,\Delta\lambda$ and height $R\,d\theta$, so
+area $R^2\,\Delta\lambda\,\cos\theta\,d\theta$. Adding the strips from $\theta_1$ to
+$\theta_2$ (a sum that calculus writes as $\int\cos\theta\,d\theta$) gives the cell's
+exact area
+
+$$A = R^2\,\Delta\lambda\,\bigl(\sin\theta_2 - \sin\theta_1\bigr),$$
+
+For a cell of height $\Delta\theta$ centred at $\theta$, the identity
+$\sin\!\left(\theta+\tfrac{\Delta\theta}{2}\right) - \sin\!\left(\theta-\tfrac{\Delta\theta}{2}\right) = 2\cos\theta\,\sin\!\left(\tfrac{\Delta\theta}{2}\right)$
+turns this into
+
+$$A = R^2\,\Delta\lambda \,\cdot\, 2\sin\!\left(\tfrac{\Delta\theta}{2}\right) \,\cdot\, \cos\theta.$$
+
+Every factor except $\cos\theta$ is identical for all cells on a regular grid, and
+constant factors cancel in a normalised weighted mean. So weighting each cell by
+$\cos$ of its centre latitude reproduces the true area weighting exactly: it is not a
+small-angle approximation, it is exact for a sphere. (The Earth's slight oblateness
+shifts cell areas by a fraction of a percent, far below anything that matters at this
+provincial scale.)
+:::
+
+::: {.callout-note appearance="minimal"}
+We weight each cell by its area (cos of latitude), the standard spatial mean. 
+For climate and health work an even better choice is **population-density 
+weighting**, which captures the climate where people actually live (noting this 
+also requires data on the human population density). That matters most for
+countries with very uneven populations (for example Australia, where most people 
+are concentrated in a few coastal cities); at Thailand's provincial scale the 
+difference is small, so we keep area-weighting here.
+:::
+
+Plot the resulting monthly temperature and rainfall series for each selected province.
+
 ```{r part3-series, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-# Per-province monthly temperature and rainfall series --------------------
 print(ggplot(clim_long, aes(month, temp_c)) +
   geom_line() + geom_point(size = 0.5) +
   facet_wrap(~ province_en, scales = "free_y") +
   labs(x = "date", y = "monthly mean temperature (°C)") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 20, hjust = 1)))
+
+print(ggplot(clim_long, aes(month, rain_m)) +
+  geom_line() + geom_point(size = 0.5) +
+  facet_wrap(~ province_en, scales = "free_y") +
+  labs(x = "date", y = "monthly rainfall (m)") +
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
-**3.1 We averaged climate over each province. What information do we lose by
-doing this? For a large province with varied terrain, is a single provincial
-average a good summary of the climate that mosquitoes and people experience?**
+**3.1 We reduced each province's climate to a single monthly average. What might
+that miss, and when might it matter?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
 ```
 <p><br></p>
 
-**3.2 Look at the per-province temperature series. How large is the within-year
-temperature range compared to the differences between provinces? Which do you
-think will be more useful for explaining malaria seasonality?**
+**3.2 Look at the per-province temperature series. What kinds of variation do you
+see, and which do you think will matter most for explaining malaria seasonality?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -835,13 +918,15 @@ learning a climate–malaria relationship from such a short record?**
 elevation gradients, forest edges, urban vs rural. For a large or topographically
 varied province, a single average may not represent the conditions where
 transmission actually happens (often specific ecological niches), so the link to
-cases is weakened.
+cases is weakened. It further assumes _average_ temperature is what is important, 
+whereas minimums or maximums may drive the mosquito population changes.
 
 **3.2** Typically the within-year (seasonal) temperature swing within a province is
 modest compared with, say, rainfall seasonality, and provinces differ from each
 other too. Both the seasonal cycle and the between-province contrasts carry
 information; the panel model in Part 5 uses both by standardising within province
-and pooling across provinces.
+and pooling across provinces. This is where checking maximum and minimum temperature 
+variations would be informative, and may help you decide which to carry forward.
 
 **3.3** A short record risks fitting to year-specific anomalies (an unusual season,
 a one-off outbreak) rather than a stable climate–malaria relationship, and gives
@@ -870,8 +955,6 @@ many climate models, under different emissions scenarios. We summarise them to t
 same provinces, under two scenarios: **SSP1-2.6** (low emissions) and **SSP5-8.5**
 (high emissions).
 
-**Run the code below, then work through the questions.**
-
 ```{r part4-read, echo=TRUE, eval=TRUE}
 library(ncdf4)
 
@@ -883,9 +966,7 @@ cmip_files <- list(
   ssp585_pr  = "cmip6_regrided_model_ensemble.Thai_region.ssp585.pr.nc"
 )
 
-# Read one CMIP variable as a list of per-model SpatRasters (time layers),
-# returning the models, times, and the raster grid. Dimensions are read by
-# name so the code does not depend on storage order.
+# Read one CMIP variable; dimensions are read by name so storage order does not matter.
 read_cmip_var <- function(path, var, from_date = NULL) {
   nc  <- nc_open(path)
   on.exit(nc_close(nc))
@@ -901,8 +982,7 @@ read_cmip_var <- function(path, var, from_date = NULL) {
   # reorder to lon, lat, time, model
   perm <- match(c("lon", "lat", "time", "model"), dn)
   arr <- aperm(arr, perm)
-  # Trim to the reanalysis start onwards (as in the original workflow), so the
-  # historical fit and the future projection share the same start month.
+  # Trim to the reanalysis start so the fit and projection share a start month.
   if (!is.null(from_date)) {
     keep <- dates >= from_date
     arr  <- arr[, , keep, , drop = FALSE]
@@ -917,16 +997,15 @@ cat("CMIP6 grid:", length(tas126$lon), "lon x", length(tas126$lat), "lat;",
     length(tas126$models), "models;", length(tas126$dates), "months\n")
 ```
 
+The next chunk defines the helpers that place each CMIP model on the reanalysis grid
+and average it to provinces, keeping every model (used later for the projection
+spread) alongside an ensemble summary.
+
 ```{r part4-summarise, echo=TRUE, eval=TRUE}
-# Build a raster template on the reanalysis grid so CMIP can be interpolated
-# onto it (matching the original workflow), then averaged per province.
 ref_grid <- tas_r[[1]]        # reanalysis grid (already cropped to region)
 
-# Interpolate a per-model, per-time CMIP array onto the reanalysis grid and
-# average over each province. Returns a tidy data frame of provincial means.
-# Build a north-up, multi-layer SpatRaster from one model's [lon, lat, time]
-# slice. Handles either coordinate ordering and treats the lon/lat values as
-# cell centres (so the extent is padded by half a cell each side).
+# Build a north-up, multi-layer SpatRaster from one model's [lon, lat, time] slice
+# (lon/lat treated as cell centres, so the extent is padded half a cell each side).
 slice_to_rast <- function(slc, lon, lat, ref) {
   lon_o <- order(lon); lat_o <- order(lat)          # index ascending
   slc <- slc[lon_o, lat_o, , drop = FALSE]          # lon asc, lat asc
@@ -941,14 +1020,11 @@ slice_to_rast <- function(slc, lon, lat, ref) {
   r
 }
 
-# Interpolate every model's CMIP slice onto the reanalysis grid and average per
-# province, KEEPING the per-model detail (province x month x model). We keep the
-# per-model array because the Part 6 projection needs the model spread, not just
-# the ensemble mean.
+# Every model -> provincial means, keeping the per-model detail (province x month x
+# model) that the Part 6 projection needs for the spread.
 cmip_provincial_bymodel <- function(cv, var, ref, provinces) {
   nm <- length(cv$models)
-  # Optional speed/debug knob: set env var CMIP_MODEL_CAP to a small integer to
-  # use only the first few models (much faster). Unset / 0 uses all models.
+  # CMIP_MODEL_CAP env var caps the number of models (a faster/debug run); 0 = all.
   cap <- suppressWarnings(as.integer(Sys.getenv("CMIP_MODEL_CAP", "")))
   if (!is.na(cap) && cap > 0) nm <- min(nm, cap)
   out <- vector("list", nm)
@@ -989,15 +1065,16 @@ provincial summaries once and cache them. It is left as a direct port here so th
 method is transparent.
 :::
 
+Now apply those helpers to all four files (two variables and two scenarios), restrict
+to the models the files share, and build the ensemble summary for plotting.
+
 ```{r part4-run, echo=TRUE, eval=TRUE}
 tas585 <- read_cmip_var(file.path(cmip_dir, cmip_files$ssp585_tas), "tas", cmip_start)
 pr126  <- read_cmip_var(file.path(cmip_dir, cmip_files$ssp126_pr),  "pr",  cmip_start)
 pr585  <- read_cmip_var(file.path(cmip_dir, cmip_files$ssp585_pr),  "pr",  cmip_start)
 
-# Restrict all four files to the CLIMATE MODELS they have in common, in the same
-# order (as the original workflow does). The files hold different numbers of
-# models, and the projection pairs temperature and rainfall model-by-model, so
-# they must refer to the same models in the same order.
+# Restrict all four files to their common models, in the same order (the projection
+# pairs temperature and rainfall model-by-model).
 common_models <- sort(Reduce(intersect,
   list(tas126$models, tas585$models, pr126$models, pr585$models)))
 align_models <- function(cv) {
@@ -1027,8 +1104,10 @@ cmip_summary <- bind_rows(
 )
 ```
 
+Aggregate the ensemble summary to annual means and plot the two scenarios for one
+example province.
+
 ```{r part4-plot, echo=TRUE, eval=TRUE, fig.width=11, fig.height=8}
-# Annual means for a clearer long-range view, for one example province -----
 example_province <- selected_provinces[1]
 
 annual <- cmip_summary %>%
@@ -1061,8 +1140,8 @@ we show a *range* across models rather than picking the single "best" model?**
 <p><br></p>
 
 **4.2 Compare the two scenarios (SSP1-2.6 and SSP5-8.5). How far apart are the
-temperature projections by the end of the century? What about rainfall: is the
-model agreement as strong?**
+temperature projections by the end of the century, and how does the model agreement
+on rainfall compare?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -1143,10 +1222,7 @@ to project future cases. The optional SEIRS section at the end of this session i
 more scientifically sound (it has per-province transmission) and gives you a code
 base for fitting a transmission model directly.
 
-**Run the code below, then work through the questions.**
-
 ```{r part5-matrices, echo=TRUE, eval=TRUE}
-# Align cases and climate on the same province x month grid ----------------
 provinces <- selected_provinces
 months    <- sort(unique(clim_long$month))
 
@@ -1176,11 +1252,11 @@ cat("cases:", nrow(cases_mat), "provinces x", ncol(cases_mat), "months;",
     "total cases =", sum(cases_mat), "\n")
 ```
 
+Standardise the response and the predictors within each province before pooling.
+
 ```{r part5-standardise, echo=TRUE, eval=TRUE}
-# Standardise per province ------------------------------------------------
-# Use the population standard deviation (divide by n, not n-1) to match NumPy's
-# np.std in the original workflow. R's built-in sd() uses n-1, which would shift
-# the standardisation and change the fitted coefficients.
+# Population SD (divide by n, like NumPy's np.std), not R's sd() (n-1), so the fit
+# reproduces the original.
 popsd <- function(x) sqrt(mean((x - mean(x))^2))
 
 # Response: standardised first difference of cases, per province
@@ -1194,10 +1270,11 @@ z_temp <- (clim_temp - rowMeans(clim_temp)) / apply(clim_temp, 1, popsd)
 z_rain <- (clim_rain - rowMeans(clim_rain)) / apply(clim_rain, 1, popsd)
 ```
 
+Fit the pooled least-squares panel, then rebuild fitted case counts by reversing the
+standardisation and the first-differencing (a cumulative sum).
+
 ```{r part5-fit, echo=TRUE, eval=TRUE}
-# Ordinary least squares on the pooled (flattened) panel ------------------
-# Predictors are temperature, temperature^2, rainfall, rainfall^2, using the
-# months aligned with the first differences (drop the first month).
+# Predictors: temperature, temperature^2, rainfall, rainfall^2 (drop the first month).
 Y <- as.vector(z_cases_fd)
 zt <- z_temp[, -1]; zr <- z_rain[, -1]
 X  <- cbind(as.vector(zt), as.vector(zt)^2, as.vector(zr), as.vector(zr)^2)
@@ -1211,8 +1288,7 @@ Y_hat  <- as.vector(X_prime %*% beta) + Y_mean
 colnames(X) <- c("temp", "temp^2", "rain", "rain^2")
 print(round(setNames(as.vector(beta), colnames(X)), 3))
 
-# Reshape prediction back to province x month, and rebuild case counts by
-# reversing the standardisation and the first-differencing (cumulative sum).
+# Rebuild case counts: undo the standardisation and the first-differencing (cumsum).
 z_hat <- matrix(Y_hat, nrow = nrow(z_cases_fd))
 fitted_cases <- cases_mat * 0
 for (i in seq_len(nrow(cases_mat))) {
@@ -1240,8 +1316,9 @@ jsonlite::write_json(list(
 ), file.path(.odir, "r_panel.json"), matrix = "rowmajor", digits = NA)
 ```
 
+Compare the observed and fitted monthly cases, province by province.
+
 ```{r part5-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-# Observed vs fitted monthly cases, per province --------------------------
 fit_long <- bind_rows(
   as.data.frame(cases_mat) %>% tibble::rownames_to_column("province_en") %>%
     pivot_longer(-province_en, names_to = "month", values_to = "cases") %>%
@@ -1282,9 +1359,8 @@ go wrong if we pooled the raw counts across provinces without standardising?**
 ```
 <p><br></p>
 
-**5.3 Look at the observed-vs-fitted panels. Where does the model do well, and
-where does it do poorly? What might it be missing (think about what drives malaria
-besides climate)?**
+**5.3 Look at the observed-vs-fitted panels. Where does the model do well, and where
+does it do poorly? What might it be missing?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -1368,9 +1444,8 @@ a fitted model, not as a prediction of future case counts.
 :::
 
 ```{r part6-project, echo=TRUE, eval=TRUE}
-# Historical per-province climate scaling, in the SAME units as the CMIP arrays
-# (temperature in °C, rainfall in m). Standardising is unaffected by a constant
-# offset, so these reproduce the scaling used to fit the model in Part 5.
+# Historical per-province scaling (in the CMIP arrays' units). Standardising is
+# offset-invariant, so this matches the scaling the model was fitted with in Part 5.
 temp_mean_p <- rowMeans(clim_temp) - 273.15   # clim_temp is Kelvin; CMIP tas is °C
 temp_sd_p   <- apply(clim_temp, 1, popsd)
 rain_mean_p <- rowMeans(clim_rain)
@@ -1410,8 +1485,10 @@ proj_arr  <- list("SSP1-2.6" = project_scenario("SSP1-2.6"),
                   "SSP5-8.5" = project_scenario("SSP5-8.5"))
 ```
 
+Aggregate the projected months to annual totals per province, and plot the ensemble
+mean and interquartile band for each scenario.
+
 ```{r part6-plot, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-# Annual totals per province, with ensemble mean and interquartile band --------
 annual_proj <- function(arr, dates, scenario) {
   yr <- lubridate::year(dates); years <- sort(unique(yr))
   ap <- sapply(years, function(y)
@@ -1663,10 +1740,8 @@ lower <- c(log(1/3.0), log(1/3.0), log(1/36.0), -2, -2,
 upper <- c(log(1/0.05), log(1/0.05), log(1/0.5), 2, 2,
            rep(log(30),   n), rep(log(1e9),  n))
 
-# maxit kept small so this runs quickly; raise it for a production fit. ndeps sets
-# the finite-difference gradient step to match SciPy's default, so this tracks the
-# notebook's fit as closely as the two L-BFGS-B implementations allow (see the note
-# in python_workflow/compare.R about why the fitted parameters are close, not exact).
+# maxit small so it runs quickly (raise for a real fit). ndeps matches SciPy's default
+# gradient step, so this tracks the notebook as closely as the two L-BFGS-B allow.
 fit <- optim(x0, neg_log_lik, method = "L-BFGS-B",
              lower = lower, upper = upper,
              cases = cases_mat, ztemp = ztemp, zrain = zrain,
@@ -1724,17 +1799,17 @@ jsonlite::write_json(list(
 ```
 
 **A note on identifiability.** Fitting this exact model in both R and Python is
-instructive. The two reach the *same* likelihood and predict essentially the same
-cases (per-province annual totals agree to about 0.3%), yet their fitted `beta0`
-and `scale` differ by a couple of percent. That is a textbook symptom of
-**non-identifiability**: `beta0` (baseline transmission) and `scale` (population ×
-reporting rate) trade off to set the case *level*, so the optimiser can shuffle
-magnitude between them, and the natural-history rates ($\sigma,\gamma,\omega$) are
-only weakly constrained by the data. It is concrete evidence for the warning above:
+instructive. `beta0` (baseline transmission) and `scale` (population × reporting rate)
+trade off to set the case *level*, so the optimiser can shuffle magnitude between
+them, and the natural-history rates ($\sigma,\gamma,\omega$) are only weakly
+constrained by the data. As a result the two implementations can reach similar
+likelihoods with noticeably different individual parameters, a textbook symptom of
+**non-identifiability**. The practical lesson, and the warning above made concrete:
 trust the model's *predictions* and the climate sensitivities `b_temp`/`b_rain`, not
-the individual parameter values. (This is why the verification in
-`python_workflow/compare.R` checks the fitted incidence and climate coefficients, and
-treats the level parameters as illustrative.)
+the individual parameter values. This is why the verification in
+`python_workflow/compare.R` reports the fitted incidence and climate coefficients and
+flags the level parameters as weakly identified, rather than expecting `beta0`/`scale`
+to match; run it to see the actual R-versus-Python differences for your fit.
 
 **Discussion (SEIRS): the statistical model (Parts 5–6) and this mechanistic model
 both link climate to malaria. What can the mechanistic model tell you that the

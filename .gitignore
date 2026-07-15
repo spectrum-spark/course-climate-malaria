@@ -34,6 +34,10 @@ python_workflow/outputs/
 # Personal scratch/test scripts (not part of the course materials)
 local_test.R
 
+# Regenerable copy-paste output of make_area_weight_diagram.py (the SVG itself lives
+# inline in the .qmd; this file is just a scratch source to copy from)
+session2_climate_data/area_weight_diagram.svg
+
 # IDE config
 .idea/
 
