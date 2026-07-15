@@ -85,6 +85,22 @@ Two distinctions are worth making explicit:
   climate signal over the horizon of interest. The honest output there is a
   sensitivity analysis, not a headline projection.
 
+::: {.callout-note}
+## Two reporting principles to carry from Session 2
+**Prefer agreement over a single number.** A multi-model ensemble gives a *spread*,
+not a forecast. Reporting *where the climate models agree on the direction of change*
+is more defensible than a single ensemble-mean line, which can imply false precision
+when models actually disagree. This is the model-consensus idea from Session 2, Part 6,
+and the approach we used in our own climate-risk work
+([Sexton et al. 2026](https://doi.org/10.1016/j.ecoinf.2026.103899){target="_blank"}).
+
+**Climate is only one driver.** Even a perfect climate-to-disease relationship
+captures one component of risk. Vector control, land use, human movement, immunity and
+health-system change all matter and are usually held fixed in a climate projection, so
+such a projection answers "how does the climate signal propagate", not "how many cases
+will there be".
+:::
+
 # Breakout groups: planning your own work
 
 ::: speaker-note
@@ -133,8 +149,10 @@ a tier?
 <p><br></p>
 
 **Prompt D: The caveats.** List the two or three biggest caveats you would attach
-to any projection you produced. Who needs to hear those caveats, and how would you
-communicate them?
+to any projection you produced. Consider in particular how you would convey *model
+agreement* (where do the climate models agree on the direction of change, and where do
+they not?) and the fact that climate is only one driver among many. Who needs to hear
+those caveats, and how would you communicate them?
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
