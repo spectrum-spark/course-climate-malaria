@@ -666,6 +666,12 @@ region_ext <- ext(97, 108, 5, 22)
 tas_r <- crop(tas_r, region_ext)
 pr_r  <- crop(pr_r,  region_ext)
 
+# Rainfall time base. ERA5 tp and CMIP flux are per-day rates; multiplying by the days
+# in a month reports monthly totals. This ONE constant is the whole monthly-vs-daily
+# switch: set it to 1 for daily rates. It is reused by the CMIP conversion in Part 4.
+DAYS_PER_MONTH <- 30
+pr_r  <- pr_r * DAYS_PER_MONTH   # tp: mean daily rate (m/day) -> monthly total (m/month)
+
 # Recover the month for each layer from the filename (YYYYMMDD-...)
 month_from_file <- function(f)
   floor_date(as.Date(sub(".*_(\\d{8})-\\d{8}\\.nc$", "\\1", basename(f)),
@@ -690,7 +696,9 @@ m_t <- ggplot(map_df_t, aes(x, y, fill = value)) +
   geom_raster() +
   geom_sf(data = shape_file, fill = NA, colour = "grey30",
           linewidth = 0.2, inherit.aes = FALSE) +
-  scale_fill_viridis_c(name = "°C") +
+  scale_fill_steps2(low = "#2166ac", mid = "white", high = "#b2182b",
+                    midpoint = 25, limits = c(20, 30), breaks = seq(20, 30, 1),
+                    name = "°C", oob = scales::squish) +
   coord_sf(expand = FALSE) +
   labs(title = "Mean temperature", x = "lon", y = "lat") +
   theme_bw()
@@ -699,7 +707,7 @@ m_r <- ggplot(map_df_r, aes(x, y, fill = value)) +
   geom_raster() +
   geom_sf(data = shape_file, fill = NA, colour = "grey30",
           linewidth = 0.2, inherit.aes = FALSE) +
-  scale_fill_viridis_c(name = "m", option = "mako") +
+  scale_fill_viridis_b(name = "m/month", option = "mako", n.breaks = 8) +
   coord_sf(expand = FALSE) +
   labs(title = "Mean rainfall", x = "lon", y = "lat") +
   theme_bw()
@@ -741,8 +749,12 @@ region_means <- function(r) {
   for (k in seq_along(region_names)) {
     sel <- which(cell_region == k)
     if (!length(sel)) next
-    w <- cell_w[sel]
-    out[k, ] <- colSums(vals[sel, , drop = FALSE] * w, na.rm = TRUE) / sum(w)
+    w    <- cell_w[sel]
+    vsel <- vals[sel, , drop = FALSE]
+    # Weighted mean over the NON-NA cells: normalise by the weights actually used, so a
+    # layer that is all NA gives NA (not 0). Matches xarray's weighted().mean(skipna);
+    # it matters for CMIP, where some models are missing (NA) in the final months.
+    out[k, ] <- colSums(vsel * w, na.rm = TRUE) / colSums((!is.na(vsel)) * w)
   }
   out
 }
@@ -880,7 +892,7 @@ print(ggplot(clim_long, aes(month, temp_c)) +
 print(ggplot(clim_long, aes(month, rain_m)) +
   geom_line() + geom_point(size = 0.5) +
   facet_wrap(~ province_en, scales = "free_y") +
-  labs(x = "date", y = "monthly rainfall (m)") +
+  labs(x = "date", y = "monthly rainfall (m/month)") +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
@@ -940,24 +952,35 @@ on such a fit should be treated as illustrative.
 
 ::: speaker-note
 This part summarises the CMIP6 multi-model ensemble to the same provinces, under
-two scenarios. The key ideas for participants: (1) CMIP6 is an *ensemble* of many
-climate models; we summarise across models with a mean and an interquartile band,
-rather than trusting any single model; and (2) the two scenarios (SSP1-2.6 low
-emissions, SSP5-8.5 high emissions) bracket a range of plausible futures. This is
-a direct translation of the original Python, including the precipitation unit
-conversion. It is the heaviest step in the document; on a slow machine give it a
-minute, and note that `freeze: auto` caches it afterwards.
+two scenarios. The key ideas for participants: 
+
+(1) CMIP6 is an *ensemble* of many climate models; we summarise across models 
+with a mean and an interquartile band, rather than trusting any single model.
+
+(2) the two scenarios (SSP1-2.6 low emissions, SSP5-8.5 high emissions) bracket 
+a range of plausible futures. It is the heaviest step in  the document; on a 
+slow machine give it a minute, and note that `freeze: auto` caches it afterwards.
 :::
 
 The learned relationship (Part 5) is only useful if we can apply it to the future.
-CMIP6 provides projections of temperature (`tas`) and precipitation (`pr`) from
-many climate models, under different emissions scenarios. We summarise them to the
-same provinces, under two scenarios: **SSP1-2.6** (low emissions) and **SSP5-8.5**
-(high emissions).
+CMIP6 provides projections of climatic variables from many climate models, under 
+different emissions scenarios. 
+
+We have curated the required data for you already, and trimmed the data to only 
+over the region required for this tutorial. We once again focus on the same two 
+we've now learned the relationship between malaria cases for: temperature 
+(`tas`) and precipitation (`pr`). We summarise them to the same provinces, under 
+two scenarios: **SSP1-2.6** (low emissions) and **SSP5-8.5** (high emissions).
+
+The `read_cmip_var()` helper below is plumbing for reading netCDF files. You can treat
+it as a black box: it says "give me this variable as an array, together with its
+longitude, latitude, dates, and model list." You do not need to follow the netCDF
+details to use what it returns.
 
 ```{r part4-read, echo=TRUE, eval=TRUE}
 library(ncdf4)
 
+# get common models across all scenarios and all variables
 cmip_dir <- file.path(data_dir, "cmip6", "monthly-averaged")
 cmip_files <- list(
   ssp126_tas = "cmip6_regrided_model_ensemble.Thai_region.ssp126.tas.nc",
@@ -973,7 +996,7 @@ read_cmip_var <- function(path, var, from_date = NULL) {
   lon <- ncvar_get(nc, "lon"); lat <- ncvar_get(nc, "lat")
   tim <- ncvar_get(nc, "time")
   models <- ncvar_get(nc, "model")
-  # time units -> dates
+  # time units -> dates  S
   tunits <- ncatt_get(nc, "time", "units")$value
   origin <- as.Date(sub(".*since ", "", tunits))
   dates  <- floor_date(origin + tim, "month")
@@ -997,11 +1020,16 @@ cat("CMIP6 grid:", length(tas126$lon), "lon x", length(tas126$lat), "lat;",
     length(tas126$models), "models;", length(tas126$dates), "months\n")
 ```
 
-The next chunk defines the helpers that place each CMIP model on the reanalysis grid
-and average it to provinces, keeping every model (used later for the projection
-spread) alongside an ensemble summary.
+The next chunk defines the helpers that place each CMIP model on the reanalysis 
+grid and average it to provinces, keeping every model (used later for the 
+projection spread) alongside an ensemble summary.
 
 ```{r part4-summarise, echo=TRUE, eval=TRUE}
+# Precipitation flux (kg m^-2 s^-1) -> monthly-total depth (m): seconds per day (86400)
+# x days per month (DAYS_PER_MONTH, defined in Part 3) / water density (1000 kg m^-3).
+# The monthly-vs-daily switch lives entirely in DAYS_PER_MONTH; this line just uses it.
+PR_FLUX_TO_M <- 86400 * DAYS_PER_MONTH / 1000
+
 ref_grid <- tas_r[[1]]        # reanalysis grid (already cropped to region)
 
 # Build a north-up, multi-layer SpatRaster from one model's [lon, lat, time] slice
@@ -1032,7 +1060,7 @@ cmip_provincial_bymodel <- function(cv, var, ref, provinces) {
     slc <- cv$arr[, , , m]                     # lon x lat x time
     r <- slice_to_rast(slc, cv$lon, cv$lat, ref)
     names(r) <- as.character(cv$dates)
-    if (var == "pr") r <- r * 86400 / 1000     # flux (kg m-2 s-1) -> m (as in original)
+    if (var == "pr") r <- r * PR_FLUX_TO_M     # flux -> depth (m); see PR_FLUX_TO_M above
     else             r <- r - 273.15           # Kelvin -> Celsius
     r <- resample(r, ref, method = "bilinear") # interpolate onto reanalysis grid
     pm <- region_means(r)                       # strict cell-centre assignment (as Part 3)
@@ -1051,19 +1079,10 @@ summarise_cmip <- function(bm, scenario, var) {
     month       = rep(bm$dates, each = length(bm$provinces)),
     scenario = scenario, variable = var,
     mean = as.vector(apply(arr3, c(1, 2), mean, na.rm = TRUE)),
-    q25 = qf(0.25), q75 = qf(0.75)
+    q05 = qf(0.05), q25 = qf(0.25), q75 = qf(0.75), q95 = qf(0.95)
   )
 }
 ```
-
-::: {.todo-note}
-The CMIP6 interpolation-and-averaging above is the single heaviest step and the
-part most likely to need a check on first render (it reads a 45-model ensemble and
-resamples it onto the reanalysis grid, exactly as the original Python did). If it
-is too slow for a live session, the course team may wish to pre-compute the
-provincial summaries once and cache them. It is left as a direct port here so the
-method is transparent.
-:::
 
 Now apply those helpers to all four files (two variables and two scenarios), restrict
 to the models the files share, and build the ensemble summary for plotting.
@@ -1104,30 +1123,101 @@ cmip_summary <- bind_rows(
 )
 ```
 
-Aggregate the ensemble summary to annual means and plot the two scenarios for one
-example province.
+As a spatial check, map the model-and-time-mean temperature and rainfall over 
+the region for each scenario, for 2025-2100. 
 
-```{r part4-plot, echo=TRUE, eval=TRUE, fig.width=11, fig.height=8}
+```{r part4-maps, echo=TRUE, eval=TRUE, fig.width=10, fig.height=11}
+# Model-and-time mean CMIP field on the reanalysis grid, for one scenario/variable.
+cmip_mean_grid <- function(cv, var) {
+  fld <- apply(cv$arr, c(1, 2), mean, na.rm = TRUE)   # lon x lat: mean over time and model
+  r <- slice_to_rast(array(fld, c(dim(fld), 1)), cv$lon, cv$lat, ref_grid)
+  if (var == "pr") r <- r * PR_FLUX_TO_M else r <- r - 273.15
+  resample(r, ref_grid, method = "bilinear")
+}
+
+cmip_map <- function(r, title, fill_scale) {
+  d <- as.data.frame(r, xy = TRUE); names(d)[3] <- "value"
+  ggplot(d, aes(x, y, fill = value)) +
+    geom_raster() +
+    geom_sf(data = shape_file, fill = NA, colour = "grey30",
+            linewidth = 0.2, inherit.aes = FALSE) +
+    fill_scale +
+    coord_sf(expand = FALSE) +
+    labs(title = title, x = "lon", y = "lat") +
+    theme_bw()
+}
+
+# Banded scales: blue-white-red for temperature,mako for rainfall. Rain limits 
+# are the Part 4 daily values x DAYS_PER_MONTH (monthly totals).
+temp_scale <- function() scale_fill_steps2(low = "#2166ac", mid = "white",
+  high = "#b2182b", midpoint = 25, limits = c(20, 30), breaks = seq(20, 30, 1),
+  name = "°C", oob = scales::squish)
+rain_scale <- function() scale_fill_viridis_b(name = "m/month", option = "mako",
+  limits = c(0.0036, 0.0084) * DAYS_PER_MONTH,
+  breaks = seq(0.0036, 0.0084, 0.0006) * DAYS_PER_MONTH, oob = scales::squish)
+
+t126 <- cmip_map(cmip_mean_grid(tas126, "tas"), "Mean temperature (SSP1-2.6)", temp_scale())
+t585 <- cmip_map(cmip_mean_grid(tas585, "tas"), "Mean temperature (SSP5-8.5)", temp_scale())
+r126 <- cmip_map(cmip_mean_grid(pr126, "pr"),  "Mean rainfall (SSP1-2.6)",   rain_scale())
+r585 <- cmip_map(cmip_mean_grid(pr585, "pr"),  "Mean rainfall (SSP5-8.5)",   rain_scale())
+
+print((t126 + t585) / (r126 + r585))
+```
+
+For one example province, plot the CMIP6 climate two ways: the monthly model-mean
+series, and the annual series showing the ensemble mean, a single model, and the
+interquartile range across models.
+
+```{r part4-plot, echo=TRUE, eval=TRUE, fig.width=9, fig.height=8}
 example_province <- selected_provinces[1]
+prov_idx  <- match(example_province, selected_provinces)
+one_model <- min(21L, dim(cmip_tas[["SSP1-2.6"]]$arr)[3])   # one member, to contrast with the ensemble
 
-annual <- cmip_summary %>%
+lab  <- c(tas = "temperature (°C)", pr = "total precipitation (m/month)")
+cols <- c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")
+
+# Monthly model-mean, from the ensemble summary
+monthly <- cmip_summary %>% filter(province_en == example_province)
+print(ggplot(monthly, aes(month, mean, colour = scenario)) +
+  geom_line(linewidth = 0.4) +
+  facet_wrap(~ variable, ncol = 1, scales = "free_y", labeller = labeller(variable = lab)) +
+  scale_colour_manual(values = cols) +
+  labs(x = "date", y = NULL,
+       title = paste0("CMIP6 monthly model-mean for ", example_province)) +
+  theme_bw())
+
+# Annual: ensemble mean, one member, and interquartile band across models
+annual <- monthly %>%
   mutate(year = year(month)) %>%
-  filter(province_en == example_province) %>%
-  group_by(province_en, scenario, variable, year) %>%
+  group_by(scenario, variable, year) %>%
   summarise(mean = mean(mean), q25 = mean(q25), q75 = mean(q75), .groups = "drop")
 
-lab <- c(tas = "temperature (°C)", pr = "total precipitation (m)")
+# one member's annual series for this province (dips into the per-model arrays)
+one_annual <- bind_rows(
+  lapply(names(cmip_tas), function(sc) data.frame(
+    year = year(cmip_tas[[sc]]$dates), scenario = sc, variable = "tas",
+    value = cmip_tas[[sc]]$arr[prov_idx, , one_model])),
+  lapply(names(cmip_pr), function(sc) data.frame(
+    year = year(cmip_pr[[sc]]$dates), scenario = sc, variable = "pr",
+    value = cmip_pr[[sc]]$arr[prov_idx, , one_model]))
+) %>% group_by(scenario, variable, year) %>% summarise(value = mean(value), .groups = "drop")
 
-print(ggplot(annual, aes(year, mean, colour = scenario, fill = scenario)) +
-  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
-  geom_line(linewidth = 0.8) +
-  facet_wrap(~ variable, scales = "free_y",
-             labeller = labeller(variable = lab)) +
-  scale_colour_manual(values = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
-  scale_fill_manual(values   = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
+annual_lines <- bind_rows(
+  transmute(annual, year, scenario, variable, value = mean, series = "model mean"),
+  transmute(one_annual, year, scenario, variable, value, series = "one model")
+)
+
+print(ggplot() +
+  geom_ribbon(data = annual, aes(year, ymin = q25, ymax = q75, fill = scenario), alpha = 0.2) +
+  geom_line(data = annual_lines,
+            aes(year, value, colour = scenario, linetype = series), linewidth = 0.7) +
+  facet_wrap(~ variable, ncol = 1, scales = "free_y", labeller = labeller(variable = lab)) +
+  scale_colour_manual(values = cols) +
+  scale_fill_manual(values = cols, guide = "none") +
+  scale_linetype_manual(name = "series", values = c("model mean" = "solid", "one model" = "dashed")) +
   labs(x = "year", y = NULL,
-       title = paste0("CMIP6 projections for ", example_province),
-       subtitle = "Model mean (line) and interquartile range (band)") +
+       title = paste0("CMIP6 annual projections for ", example_province),
+       subtitle = "Solid = model mean, dashed = one model, band = interquartile range (only the middle 50% of models)") +
   theme_bw())
 ```
 
@@ -1162,10 +1252,34 @@ climate–malaria relationship when we extrapolate it decades into the future?**
 ::: {.callout-tip collapse="true"}
 ## Solutions for Part 4: click to reveal (try the questions first)
 
-**4.1** Individual climate models disagree, especially on rainfall. The
-ensemble mean is more reliable than any single model, and the spread (here the
-interquartile band) is itself the honest expression of projection *uncertainty*.
-Picking one "best" model hides that uncertainty.
+**4.1** Individual climate models disagree, especially on rainfall: note how the
+randomly chosen single model often exceeds the interquartile range. The ensemble 
+mean is more reliable than any single model, and the spread is itself the honest 
+expression of projection *uncertainty*. Picking one "best" model hides that
+uncertainty. Note also that the band in the Part 4 plot is *only* the 
+interquartile range, the middle 50% of models; the full disagreement is wider. 
+The plot below redraws the example province's temperature with the 5-95% range 
+as well.
+
+```{r part4-sol-spread, echo=TRUE, eval=TRUE, fig.width=8, fig.height=4}
+ci90 <- cmip_summary %>%
+  filter(province_en == example_province, variable == "tas") %>%
+  mutate(year = year(month)) %>%
+  group_by(scenario, year) %>%
+  summarise(mean = mean(mean), q05 = mean(q05), q25 = mean(q25),
+            q75 = mean(q75), q95 = mean(q95), .groups = "drop")
+
+print(ggplot(ci90, aes(year, mean, colour = scenario, fill = scenario)) +
+  geom_ribbon(aes(ymin = q05, ymax = q95), alpha = 0.12, colour = NA) +   # 5-95% range
+  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.28, colour = NA) +   # interquartile range
+  geom_line(linewidth = 0.8) +
+  scale_colour_manual(values = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
+  scale_fill_manual(values   = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
+  labs(x = "year", y = "temperature (°C)",
+       title = paste0("Model spread in projected temperature, ", example_province),
+       subtitle = "Line = mean, inner band = interquartile range, outer band = 5-95% of models") +
+  theme_bw())
+```
 
 **4.2** Temperature projections usually diverge clearly between the two scenarios
 by late century, with SSP5-8.5 substantially warmer, and models tend to agree on
@@ -1186,18 +1300,22 @@ projection.
 
 ::: speaker-note
 This is the core of the session: a statistical model relating climate to malaria
-cases across all provinces at once (a "panel" model). The design choices to draw
-out: (1) we model the *first difference* (month-to-month change) in cases rather
+cases across all provinces at once (a "panel" model). 
+
+The design choices to draw out: 
+
+(1) we model the *first difference* (month-to-month change) in cases rather
 than the level, and we *standardise* per province, so that provinces of very
-different sizes contribute comparably; (2) climate enters as temperature, rainfall,
-and their squares, allowing a hump-shaped (optimum) response; and (3) the fitted
-coefficients are *shared* across provinces, one climate–malaria relationship
-applied everywhere. This is a direct translation of the original "panel method"
-ordinary-least-squares fit. Frame it explicitly as the *simplest* model, one set
-of coefficients for the whole country. Part 6 then pushes it forward under CMIP6 to
-project future cases; the optional SEIRS section at the end of this session is the
-more scientifically sound alternative (per-province transmission) for those who want
-a mechanistic model.
+different sizes contribute comparably.
+
+(2) climate enters as temperature, rainfall, and their squares, allowing a 
+hump-shaped (optimum) response. 
+
+(3) the fitted coefficients are *shared* across provinces, one climate–malaria 
+relationship applied everywhere. 
+
+Frame it explicitly as the *simplest* model, one set of coefficients for the 
+whole country. 
 :::
 
 We now link climate to cases directly with a simple statistical model, pooling all
