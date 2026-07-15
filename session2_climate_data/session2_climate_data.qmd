@@ -1318,27 +1318,15 @@ Frame it explicitly as the *simplest* model, one set of coefficients for the
 whole country. 
 :::
 
-We now link climate to cases directly with a simple statistical model, pooling all
-provinces. We use a **panel method**, the same approach used to learn the impact
-of temperature and rainfall on the gross domestic product of the world's economies
-([Burke, Hsiang & Miguel, *Nature*, 2015](https://www.nature.com/articles/nature15725){target="_blank"})
-, but here applied to learn the impact of temperature and rainfall on the
-month-to-month *change* in infection count. Because these simple panel methods
-cannot account for trends, we first remove the trend by taking the first difference,
-then standardise each province by its own mean and standard deviation over time.
-Temperature and rainfall enter as themselves and squared, allowing a non-linear
-(hump-shaped) response, with one shared relationship across provinces. Because we
-model the first difference (the "integrated" step) and reconstruct the level by a
-cumulative sum, this is an **ARIMA-style** model, more precisely an autoregressive
-model with exogenous inputs (ARX), with temperature and rainfall as the exogenous
-climate drivers (hence `arx_fit` below).
+We now link climate to cases directly with a simple statistical model that pools all
+provinces: a **panel method**, the same approach used to learn how temperature and
+rainfall affect the gross domestic product of the world's economies
+([Burke, Hsiang & Miguel, *Nature*, 2015](https://www.nature.com/articles/nature15725){target="_blank"}),
+here applied to the month-to-month *change* in infection count. It is deliberately the
+simplest model that works, one shared set of coefficients for the whole country, built
+up in a few steps below.
 
-This is perhaps the most basic model one can build, and is designed to illustrate
-the logic of integrating the climate data. It uses a single set of coefficients for
-all provinces. In Part 6 we push this fitted model forward under the CMIP6 climate
-to project future cases. The optional SEIRS section at the end of this session is
-more scientifically sound (it has per-province transmission) and gives you a code
-base for fitting a transmission model directly.
+First, line up the malaria counts and the climate on the same province-by-month grid.
 
 ```{r part5-matrices, echo=TRUE, eval=TRUE}
 provinces <- selected_provinces
@@ -1370,11 +1358,12 @@ cat("cases:", nrow(cases_mat), "provinces x", ncol(cases_mat), "months;",
     "total cases =", sum(cases_mat), "\n")
 ```
 
-Standardise the response and the predictors within each province before pooling.
+Panel methods cannot account for trends, , as such we must first remove the 
+trend by working with the first *difference*, and then *standardise* by the mean 
+and standard deviation of the data in time per province.
 
 ```{r part5-standardise, echo=TRUE, eval=TRUE}
-# Population SD (divide by n, like NumPy's np.std), not R's sd() (n-1), so the fit
-# reproduces the original.
+# SD (divide by n, like NumPy's np.std), not R's sd() (n-1)
 popsd <- function(x) sqrt(mean((x - mean(x))^2))
 
 # Response: standardised first difference of cases, per province
@@ -1388,26 +1377,59 @@ z_temp <- (clim_temp - rowMeans(clim_temp)) / apply(clim_temp, 1, popsd)
 z_rain <- (clim_rain - rowMeans(clim_rain)) / apply(clim_rain, 1, popsd)
 ```
 
-Fit the pooled least-squares panel, then rebuild fitted case counts by reversing the
-standardisation and the first-differencing (a cumulative sum).
+Vector `Y` is the standardised first difference of the counts, flattened across 
+all provinces and months into one long vector. 
 
-```{r part5-fit, echo=TRUE, eval=TRUE}
-# Predictors: temperature, temperature^2, rainfall, rainfall^2 (drop the first month).
-Y <- as.vector(z_cases_fd)
+Matrix `X` has one row per province-month, and columns for standardised 
+temperature, temperature squared, rainfall, and rainfall squared. The squared 
+terms are included to allow for potential nonlinear dependencies of the climate 
+upon the infection rates.
+
+```{r part5-build, echo=TRUE, eval=TRUE}
+# Flatten province x month into one vector; X columns: temp, temp^2, rain, rain^2.
+Y  <- as.vector(z_cases_fd)
 zt <- z_temp[, -1]; zr <- z_rain[, -1]
 X  <- cbind(as.vector(zt), as.vector(zt)^2, as.vector(zr), as.vector(zr)^2)
-
-# Centre (as in the original), solve, and predict
-Y_mean <- mean(Y);            Y_prime <- Y - Y_mean
-X_mean <- colMeans(X);        X_prime <- sweep(X, 2, X_mean)
-beta   <- solve(t(X_prime) %*% X_prime, t(X_prime) %*% Y_prime)
-Y_hat  <- as.vector(X_prime %*% beta) + Y_mean
-
 colnames(X) <- c("temp", "temp^2", "rain", "rain^2")
-print(round(setNames(as.vector(beta), colnames(X)), 3))
+```
 
-# Rebuild case counts: undo the standardisation and the first-differencing (cumsum).
+We then solve `Y =  X B` for the coefficients `B` using standard ordinary least 
+squares on the pooled data. Although one could in principle use more 
+sophisticated elaborate methods (e.g. ridge or lasso regression).
+
+```{r part5-fit, echo=TRUE, eval=TRUE}
+# Centre; subtract away means of matrices
+Y_mean <- mean(Y)
+Y_prime <- Y - Y_mean
+X_mean <- colMeans(X)
+X_prime <- sweep(X, 2, X_mean)
+
+# solve ordinary least squares problem
+XtX = t(X_prime) %*% X_prime  #  XᵀX
+XtY = t(X_prime) %*% Y_prime  # XᵀY
+B   <- solve(XtX, XtY) # solves the linear system A B = C for B, with A = XᵀX and C = XᵀY. So it returns B = (XᵀX)⁻¹ XᵀY
+# which is the closed-form OLS estimate, the coefficients that minimise the squared error ‖X B − Y‖²
+print(round(setNames(as.vector(B), colnames(X)), 3))
+```
+
+We then evaluate predictions of the *change* in infection cases using this 
+regression model (the fitted `B`), reshape the data to be a matrix per 
+province and per month, and then finally apply a cummulative sum to return 
+infection counts (as opposed to changes in infection counts).
+
+Because we model the first difference and rebuild the level by that cumulative 
+sum, this is an **ARIMA-style** model, an autoregressive model with exogenous 
+inputs (ARX), temperature and rainfall being the exogenous drivers (hence 
+`arx_fit`).
+
+```{r part5-reconstruct, echo=TRUE, eval=TRUE}
+# Predict the change 
+Y_hat <- as.vector(X_prime %*% B) + Y_mean
+
+# reshape to province x month
 z_hat <- matrix(Y_hat, nrow = nrow(z_cases_fd))
+
+#  Rescale first differences and apply cummulative sum to get back to counts
 fitted_cases <- cases_mat * 0
 for (i in seq_len(nrow(cases_mat))) {
   fitted_cases[i, 1]  <- cases_mat[i, 1]
@@ -1429,12 +1451,17 @@ jsonlite::write_json(list(
   cases_mat  = cases_mat,
   clim_temp  = clim_temp,
   clim_rain  = clim_rain,
-  panel_beta = as.vector(beta),
+  panel_beta = as.vector(B),
   arx_fit    = fitted_cases
 ), file.path(.odir, "r_panel.json"), matrix = "rowmajor", digits = NA)
 ```
 
-Compare the observed and fitted monthly cases, province by province.
+Finally, we visualise the model estimates (red line) as compared to the actual 
+data (black line).
+
+This is perhaps the most basic model one can develop, and is design to 
+illustrate the logic and integration of the climate data. It uses one set of 
+coefficients to represent the behaviour across all provinces.
 
 ```{r part5-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
 fit_long <- bind_rows(
@@ -1456,13 +1483,16 @@ print(ggplot(fit_long, aes(month, cases, colour = series)) +
   theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
-The fitted `beta` coefficients define the climate response. In **Part 6** we apply
-them to the future CMIP6 climate to project cases forward.
+The fitted `B` coefficients define the climate response. In **Part 6** we 
+apply them to the future CMIP6 climate to project malaria infection cases 
+forward. The optional SEIRS section at the end of this session fits a 
+transmission model to the same climate parameters, an illustration of the 
+mechanistic approach.
 
-**5.1 The model uses temperature, temperature², rainfall, and rainfall². What
-shape of climate–malaria relationship do the squared terms allow that a
-straight-line model could not? Why is that biologically sensible for a
-mosquito-borne disease?**
+**5.1 What biologically reasonable relationships between temperature and
+rainfall and malaria might you expect? Looking back at how the climate variables
+enter the model, how were those relationships included here, and what might you
+expand upon to capture them more fully?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -1499,11 +1529,19 @@ climate values before trusting such a projection.**
 ::: {.callout-tip collapse="true"}
 ## Solutions for Part 5: click to reveal (try the questions first)
 
-**5.1** The squared terms allow a *hump-shaped* (unimodal) response: cases rising
-with temperature or rainfall up to an optimum and then falling. This is
-biologically sensible because mosquito survival, biting, and parasite development
-each have thermal optima, and both drought and flushing rains can reduce breeding,
-so the response to climate is rarely monotonic.
+**5.1** Biologically, we would expect the relationships to be *non-monotonic*
+rather than straight lines: mosquito survival, biting, and parasite development
+each have a thermal optimum, so transmission rises with temperature to a point and
+then falls; and both drought and flushing rains can reduce breeding, so rainfall
+also has an intermediate optimum. There are usually *lags* too, since it takes time
+for climate to act through the mosquito population and the parasite's incubation.
+In this model those relationships were included by adding *squared* terms
+(temperature² and rainfall²) alongside the linear ones, which lets the fitted
+response be hump-shaped (unimodal) instead of a straight line. To capture the
+biology more fully you might add lagged climate terms, an interaction between
+temperature and rainfall, higher-order or spline terms for a more flexible shape,
+or move to a mechanistic model that represents the vector dynamics directly (as in
+the optional SEIRS section).
 
 **5.2** Provinces differ enormously in population and case numbers. Pooling raw
 counts would let a few large-caseload provinces dominate the fit, and would confound
@@ -1511,11 +1549,31 @@ counts would let a few large-caseload provinces dominate the fit, and would conf
 province puts every province on a comparable footing so the shared coefficients
 reflect the climate relationship, not province size.
 
+It is worth separating two things that our per-province standardisation bundles
+together. Dividing by population *first* (noting that this would require yet
+another data source though!), to get a per-capita incidence, is a good
+idea in its own right: it removes the "more cases because bigger" effect while
+keeping each province's real *level* of incidence, which is a meaningful quantity to
+compare across provinces. Our z-scoring goes further and also removes each province's
+mean and scale, so the fit uses only the within-province variation over time. That is
+what makes the coefficients comparable, but it also discards the between-province
+signal, so it can obscure relationships that live in the differences *between*
+provinces, for example a sparsely populated but high-incidence province whose burden
+is driven by climate. A reasonable alternative is to do both: convert to incidence
+first, then standardise, so the level information is at least available to inspect
+before it is removed.
+
 **5.3** The model tends to capture the broad seasonal rise and fall but misses
 sharp peaks, sudden outbreaks, and province-specific idiosyncrasies. Malaria is
 also driven by non-climate factors: interventions (bed nets, spraying), human
 movement and importation, drug resistance, health-system reporting changes, none
-of which are in a climate-only model.
+of which are in a climate-only model. By construction it also uses only
+*within-province* variation over time: standardising each province to its own mean
+and SD removes each province's baseline, so the model learns how a province's
+cases move with its *own* climate, not why one province carries a higher caseload
+than another, which may itself be climate-driven. That between-province spatial signal
+is deliberately traded away to avoid confounding climate with everything else that
+differs between provinces.
 
 **5.4** Sensible checks include: are the future climate values within the range the
 model was trained on (extrapolation beyond the training range is dangerous)? Are the
@@ -1532,7 +1590,7 @@ This is the pay-off: we take the model fitted on the historical period (Part 5) 
 push it forward under the CMIP6 climate (Part 4) to project future cases. The
 mechanics: standardise each future climate value using the *historical*
 per-province mean and standard deviation (never re-standardise on the future data,
-or you throw away the trend you are trying to project), apply the fitted `beta`, and
+or you throw away the trend you are trying to project), apply the fitted `B`, and
 rebuild case counts. We run every climate model separately and show the ensemble
 mean and interquartile band, exactly as we did for the raw climate in Part 4.
 
@@ -1576,10 +1634,10 @@ hist_end <- max(months)
 project_one <- function(tas_pm, pr_pm, dates) {
   zt <- (tas_pm - temp_mean_p) / temp_sd_p    # province x month (vectors recycle per row)
   zr <- (pr_pm  - rain_mean_p) / rain_sd_p
-  yhat <- (zt   - X_mean[1]) * beta[1] +      # predicted standardised first-difference
-          (zt^2 - X_mean[2]) * beta[2] +
-          (zr   - X_mean[3]) * beta[3] +
-          (zr^2 - X_mean[4]) * beta[4] + Y_mean
+  yhat <- (zt   - X_mean[1]) * B[1] +      # predicted standardised first-difference
+          (zt^2 - X_mean[2]) * B[2] +
+          (zr   - X_mean[3]) * B[3] +
+          (zr^2 - X_mean[4]) * B[4] + Y_mean
   dcases <- yhat * fd_sd + fd_mean            # back to case-change units, per province
   fut <- which(dates > hist_end)             # project future months only
   proj <- last_obs + t(apply(dcases[, fut, drop = FALSE], 1, cumsum))
@@ -1701,7 +1759,8 @@ convergence, and every number is illustrative.
 
 The model in Parts 5–6 is deliberately the simplest thing that works: one shared
 statistical relationship between climate and the month-to-month *change* in cases. A
-mechanistic **SEIRS** model is the more biologically structured alternative. Instead
+mechanistic **SEIRS** model is the more biologically structured alternative, though
+still a heavy simplification of the real transmission (and vector) dynamics. Instead
 of regressing cases on climate, it represents the disease process itself: people
 move through Susceptible → Exposed → Infected → Recovered → Susceptible compartments
 , and lets **climate drive the transmission rate**. That buys three things the
