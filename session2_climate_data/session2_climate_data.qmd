@@ -173,7 +173,7 @@ Reading that question tells us:
 
 This list is the data we found available, not the initial list assembled. 
 
-**What data do you think is missing from this list, and why?**
+**0.1 What data do you think is missing from this list, and why?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -183,7 +183,7 @@ This list is the data we found available, not the initial list assembled.
 <p><input type="button" value="Print this page" onClick="window.print()"></p>
 
 ::: {.callout-tip collapse="true"}
-## Suggested answer: click to reveal (try to answer yourself first)
+## 0.1 Suggested answer: click to reveal (try to answer yourself first)
 
 There is no single right answer.
 
@@ -347,7 +347,7 @@ off by switching. If you identified other data earlier, what sources are there?*
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 1.1: click to reveal (try it first)
+## 1.1 Suggested answer: click to reveal (try it first)
 There are alternatives for every source, each with trade-offs. For the
 reanalysis, other products such as MERRA-2 or JRA-55, or gridded observational
 datasets (for example CHIRPS for rainfall, CRU for temperature), could replace
@@ -376,7 +376,7 @@ the future projections to learn the relationship in the first place?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 1.2: click to reveal (try it first)
+## 1.2 Suggested answer: click to reveal (try it first)
 Future projections are, by construction, *projections*: they describe
 plausible futures, not observed weather, and there is no malaria data from the
 future to pair them with. We can only learn a relationship where we observe
@@ -447,7 +447,7 @@ it matter, for a climate-driven analysis, that these two species are combined?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 2.4: click to reveal (try it first)
+## 2.4 Suggested answer: click to reveal (try it first)
 *P. vivax* and *P. falciparum* differ in incubation period, in relapse
 behaviour (vivax can relapse from liver-stage hypnozoites months later), and
 likely in their climate sensitivity. But they have similar mosquito vectors. So
@@ -528,7 +528,7 @@ between provinces?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 2.3: click to reveal (try it first)
+## 2.3 Suggested answer: click to reveal (try it first)
 Most provinces show a seasonal rise and fall, but not all peak in the same
 month; malaria seasonality depends on local climate, elevation, land use, and
 the timing of the rains, which differ across the country. Border provinces and
@@ -592,7 +592,7 @@ provinces with a longer record before trying to relate cases to climate?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 2.1: click to reveal (try it first)
+## 2.1 Suggested answer: click to reveal (try it first)
 There are many provinces in the raw data, but only those reported in more
 than 12 months are kept (18 provinces kept out of 66), and of those only the ones whose names
 match the boundary shapefile are carried forward. Restricting to provinces with a
@@ -615,7 +615,7 @@ scale?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 2.2: click to reveal (try it first)
+## 2.2 Suggested answer: click to reveal (try it first)
 The spatial unit is a trade-off between signal and sparsity, and the
 case counts sharpen it. Going finer would likely work, with 90.8% of the malaria
 data still included. But visualising the 37 districts that clear the ">12
@@ -948,7 +948,7 @@ that miss, and when might it matter?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 3.1: click to reveal (try it first)
+## 3.1 Suggested answer: click to reveal (try it first)
 Averaging to a province discards all within-province spatial variation:
 elevation gradients, forest edges, urban vs rural. For a large or topographically
 varied province, a single average may not represent the conditions where
@@ -984,7 +984,7 @@ see, and which do you think will matter most for explaining malaria seasonality?
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 3.2: click to reveal (try it first)
+## 3.2 Suggested answer: click to reveal (try it first)
 Typically the within-year (seasonal) temperature swing within a province is
 modest compared with, say, rainfall seasonality, and provinces differ from each
 other too. Both the seasonal cycle and the between-province contrasts carry
@@ -1002,7 +1002,7 @@ learning a climate–malaria relationship from such a short record?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 3.3: click to reveal (try it first)
+## 3.3 Suggested answer: click to reveal (try it first)
 A short record risks fitting to year-specific anomalies (an unusual season,
 a one-off outbreak) rather than a stable climate–malaria relationship, and gives
 very little power to separate climate effects from other drivers. Projections built
@@ -1299,7 +1299,7 @@ we show a *range* across models rather than picking the single "best" model?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 4.1: click to reveal (try it first)
+## 4.1 Suggested answer: click to reveal (try it first)
 Individual climate models disagree, especially on rainfall: note how the
 randomly chosen single model often exceeds the interquartile range. The ensemble
 mean is more reliable than any single model, and the spread is itself the honest
@@ -1340,7 +1340,7 @@ on rainfall compare?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 4.2: click to reveal (try it first)
+## 4.2 Suggested answer: click to reveal (try it first)
 Temperature projections usually diverge clearly between the two scenarios
 by late century, with SSP5-8.5 substantially warmer, and models tend to agree on
 the direction of warming. Rainfall is far less certain: the inter-model band is
@@ -1358,7 +1358,7 @@ climate–malaria relationship when we extrapolate it decades into the future?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 4.3: click to reveal (try it first)
+## 4.3 Suggested answer: click to reveal (try it first)
 We are assuming the climate–malaria relationship learned over a couple of
 recent years holds, unchanged, decades into the future, i.e. that no adaptation,
 intervention, land-use change, drug resistance, or shift in the mosquito/parasite
@@ -1585,7 +1585,7 @@ expand upon to capture them more fully?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 5.1: click to reveal (try it first)
+## 5.1 Suggested answer: click to reveal (try it first)
 Biologically, we would expect the relationships to be *non-monotonic*
 rather than straight lines: mosquito survival, biting, and parasite development
 each have a thermal optimum, so transmission rises with temperature to a point and
@@ -1614,7 +1614,7 @@ go wrong if we pooled the raw counts across provinces without standardising?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 5.2: click to reveal (try it first)
+## 5.2 Suggested answer: click to reveal (try it first)
 Provinces differ enormously in population and case numbers. Pooling raw
 counts would let a few large-caseload provinces dominate the fit, and would confound
 "more cases because bigger" with "more cases because of climate". Standardising per
@@ -1645,7 +1645,7 @@ does it do poorly? What might it be missing?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 5.3: click to reveal (try it first)
+## 5.3 Suggested answer: click to reveal (try it first)
 The model tends to capture the broad seasonal rise and fall but misses
 sharp peaks, sudden outbreaks, and province-specific idiosyncrasies. Malaria is
 also driven by non-climate factors: interventions (bed nets, spraying), human
@@ -1669,7 +1669,7 @@ climate values before trusting such a projection.**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 5.4: click to reveal (try it first)
+## 5.4 Suggested answer: click to reveal (try it first)
 Sensible checks include: are the future climate values within the range the
 model was trained on (extrapolation beyond the training range is dangerous)? Are the
 units and standardisation applied identically to the projections? Is the seasonal
@@ -1781,7 +1781,7 @@ wrong if we standardised the future climate on itself?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 6.1: click to reveal (try it first)
+## 6.1 Suggested answer: click to reveal (try it first)
 The model was fitted on climate standardised by its *historical* mean and
 standard deviation, so the coefficients only make sense on that same scale. If we
 re-standardised the future climate on itself, we would subtract off the very warming
@@ -1798,7 +1798,9 @@ mean and interquartile band for each scenario.
 # Turn one scenario's projection (province x month x model) into a per-province,
 # per-year summary across models (mean and interquartile band), ready for ggplot.
 annual_proj <- function(arr, dates, scenario) {
-  yr <- lubridate::year(dates); years <- sort(unique(yr))  # the calendar year of each month
+  yr <- lubridate::year(dates)                             # the calendar year of each month
+  years <- sort(unique(yr))
+  years <- years[vapply(years, function(y) sum(yr == y) == 12, logical(1))]  # complete (12-month) years only
   # For each year, sum that year's months -> a province x model matrix (annual totals).
   # sapply stacks those matrices as columns, giving a (province*model) x year matrix.
   ap <- sapply(years, function(y)
@@ -1850,7 +1852,7 @@ print(ggplot(proj_annual, aes(year, mean, colour = scenario, fill = scenario)) +
 Core question for the 90-minute run; pause here. The other Part 6 questions are for self-study.
 :::
 
-**Does this projection look realistic to you?** Look at the trajectories against the
+**6.2 Does this projection look realistic to you?** Look at the trajectories against the
 historical average (the dashed line, currently squashed near the bottom of each panel).
 Is there anything about the numbers you would want to check before believing them?
 
@@ -1860,7 +1862,7 @@ Is there anything about the numbers you would want to check before believing the
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer: click to reveal (look at the plot first)
+## 6.2 Suggested answer: click to reveal (look at the plot first)
 The projected counts climb far above anything in the historical record, and the free
 y-axis hides how far. Comparing the largest projected monthly count to the largest one
 ever observed makes it concrete:
@@ -1880,7 +1882,7 @@ and the *gap* between scenarios, not the absolute counts. The bounded SEIRS in t
 optional section is one way to avoid this.
 :::
 
-**6.2 Look at the projected trajectories and re-read the caveat. Which features of
+**6.3 Look at the projected trajectories and re-read the caveat. Which features of
 these plots would you trust, and which would you not? How would you describe the
 result honestly to a decision-maker?**
 
@@ -1890,7 +1892,7 @@ result honestly to a decision-maker?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 6.2: click to reveal (try it first)
+## 6.3 Suggested answer: click to reveal (try it first)
 Trust the *direction and relative* differences, e.g. that the higher-
 emissions scenario diverges from the lower one, and the ranking of provinces, more
 than the absolute case numbers, which drift because of the cumulative-sum
@@ -1914,7 +1916,9 @@ fraction of models projecting an increase.
 ```{r part6-consensus, echo=TRUE, eval=TRUE, fig.width=11, fig.height=6}
 # Per-model change in annual cases: first projection decade vs last, per province.
 model_change <- function(arr, dates, n_win = 10) {
-  yr <- lubridate::year(dates); years <- sort(unique(yr))
+  yr <- lubridate::year(dates)
+  years <- sort(unique(yr))
+  years <- years[vapply(years, function(y) sum(yr == y) == 12, logical(1))]  # complete years only
   ap <- sapply(years, function(y)
     apply(arr[, yr == y, , drop = FALSE], c(1, 3), sum))    # province*model collapsed per year
   ap <- array(ap, dim = c(length(provinces), dim(arr)[3], length(years)))  # prov x model x year
@@ -1954,7 +1958,7 @@ print(ggplot(consensus_sf) +
   theme(axis.text = element_blank(), axis.ticks = element_blank()))
 ```
 
-**6.3 The trajectory band is the interquartile range across models; the consensus
+**6.4 The trajectory band is the interquartile range across models; the consensus
 map instead shows the fraction of models agreeing on the *direction* of change. What
 does the consensus map tell you that the band does not, and why might agreement on
 the sign be more useful to a decision-maker than the ensemble mean?**
@@ -1965,7 +1969,7 @@ the sign be more useful to a decision-maker than the ensemble mean?**
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
-## Answer 6.3: click to reveal (try it first)
+## 6.4 Suggested answer: click to reveal (try it first)
 The band mixes together models that disagree: a wide band could mean the
 models point in opposite directions, or that they agree on the direction but differ
 in magnitude. The consensus map separates those, showing *where* the models agree on
@@ -1984,52 +1988,98 @@ provinces are far more consistent than others.
 # Optional: a mechanistic SEIRS alternative
 
 ::: speaker-note
-This whole section is optional: it lives behind an expandable box so it does 
-not interrupt the main flow, and so Session 3 can stay a clean group discussion. 
-Run it only if the group powers through Parts 1–6 with time to spare, or point 
-interested participants to it afterwards. It reuses the case and climate data
-already built above (no re-loading), fits a compartmental transmission model, 
-and doubles as a **code base for fitting a transmission model directly**. Keep 
-the optimiser budget small for a live demo: the fit is deliberately not run to
-convergence for the sake of time, and every number is illustrative.
+This whole section is optional. 
+
+It reuses the case and climate data already built above (no re-loading), fits a 
+compartmental transmission model, and doubles as a **code base for fitting a 
+transmission model directly**. 
+
+The fit runs for `maxit = 200` iterations with a relaxed convergence tolerance
+(`factr`), which settles this weakly-identified model; reduce `maxit` for a quicker,
+rougher live-demo fit.
 :::
 
 ::: {.callout-note collapse="true"}
-## Why an SEIRS model? (optional and more advanced; click to expand)
+## Why an SEIRS model? (optional; click to expand)
 
 The model in Parts 5–6 is deliberately the simplest thing that works: one shared
-statistical relationship between climate and the month-to-month *change* in cases. A
-mechanistic **SEIRS** model is the more biologically structured alternative, though
-still a heavy simplification of the real transmission (and vector) dynamics. Instead
-of regressing cases on climate, it represents the disease process itself: people
-move through Susceptible → Exposed → Infected → Recovered → Susceptible compartments
-, and lets **climate drive the transmission rate**. That buys three things the
-statistical model cannot: per-province transmission with *shared* natural-history
-parameters (so provinces borrow strength); built-in saturation and waning immunity
-(so it cannot produce the negative or runaway counts a differenced model can); and a
-template you can adapt to fit a transmission model directly to your own data. The
-cost is more assumptions and a harder fit.
+statistical relationship between climate and the month-to-month *change* in 
+malaria cases. 
 
-Each province runs an SEIRS model sharing the natural-history parameters but with a
-province- and time-varying transmission rate:
+This takes a different, mechanistic approach: rather than regressing malaria 
+cases on climate, it fits a compartmental **SEIRS** model (Susceptible → Exposed
+→ Infected → Recovered → Susceptible) per province, *sharing* the disease's 
+natural-history parameters across all provinces but letting the transmission 
+rate vary by province and over time:
+$$\begin{aligned}
+\frac{dS}{dt} &= -\beta(t) S I + \omega R \\
+\frac{dE}{dt} &= \beta(t) S I - \sigma E \\
+\frac{dI}{dt} &= \sigma E - \gamma I \\
+\frac{dR}{dt} &= \gamma I - \omega R
+\end{aligned}$$
+where\
+* $\sigma$ (1/incubation period), $\gamma$ (1/infectious period) and $\omega$ 
+(1/duration of immunity) are **shared across every province** -- these are 
+properties of the parasite/host biology, not the location.\
+* $\beta(t)$, the transmission rate, is **province-specific and time-varying**: 
+$\beta_p(t) = \beta_{0,p} \exp(b_{temp} \cdot z_{temp}(p,t) + b_{rain} \cdot z_{rain}(p,t))$, 
+where $z_{temp}$/$z_{rain}$ are standardised monthly temperature/rainfall. This 
+is a deliberately simple proxy: malaria is mosquito-borne and mosquito abundance
+changs with temperature and breeding site availability ($\approx$rainfall), but 
+we didn't find mosquito data for the same time period, so climate stands in 
+directly for the missing vector population dynamics. $b_{temp}$ and $b_{rain}$ 
+are shared across provinces (one climate-sensitivityrelationship, applied 
+everywhere); $\beta_{0,p}$ is a free per-province baseline.\
+* Reported monthly cases are modelled as 
+$\text{cases}_p(t) \sim \text{Poisson}(\text{scale}_p \cdot y_p(t))$, where
+$y_p(t) = \int_{\text{month } t} \sigma E_p(\tau)\,\mathrm{d}\tau$ is the new 
+infections *accumulated over* month $t$ (the simulation integrates $\sigma E$ 
+within each month and resets the accumulator at the start of each month), fit by 
+maximum likelihood (L-BFGS-B on the negative log-likelihood, parameters in 
+log-space to keep them positive).
 
-$$\frac{dS}{dt} = -\beta(t) S I + \omega R \quad
-  \frac{dE}{dt} = \beta(t) S I - \sigma E \quad
-  \frac{dI}{dt} = \sigma E - \gamma I \quad
-  \frac{dR}{dt} = \gamma I - \omega R$$
+**7.1 Why does the transmission rate use an *exponential* of the climate variables,
+$\beta_0\exp(b_{temp}z_{temp} + b_{rain}z_{rain})$, rather than a quadratic like the
+ARX model in Part 5?**
 
-with $\beta_p(t) = \beta_{0,p}\exp(b_{temp}\, z_{temp}(p,t) + b_{rain}\, z_{rain}(p,t))$,
-and reported cases modelled as
-$\text{cases}_p(t) \sim \text{Poisson}(\text{scale}_p \cdot \sigma E_p(t))$, fitted by
-maximum likelihood.
+```{=html}
+<textarea cols="127" rows="4"></textarea>
+```
+<p><br></p>
 
-**Caveats: read before trusting any number.** The climate covariates stand in for
-missing mosquito data; there are no population denominators (so `scale` absorbs
-population size and reporting rate); the natural-history parameters
-($\sigma,\gamma,\omega$) are fitted freely rather than fixed to published
-vivax/falciparum biology; the two parasite species are pooled; and the optimiser uses
-a small iteration budget so it runs quickly; it is **not** run to convergence. Treat
-every output as illustrative of method, not as an estimate.
+:::: {.callout-tip collapse="true"}
+## 7.1 Suggested answer: click to reveal (try it first)
+Two reasons. First, $\beta$ must stay positive; $\exp(\cdot)$ is
+positive for any coefficients, whereas a bare quadratic can go negative (the ARX
+quadratic is fine because it acts on the standardised *change in cases*, which 
+can be either sign). Second, in the ARX model the quadratic is the *only* source 
+of nonlinearity, so it has to bend the response itself; the SEIRS already 
+produces non-monotonic case dynamics from its structure (susceptible depletion, 
+waning immunity, the incubation delay), so a simple positive, multiplicative 
+modulation of the rate is probably enough. You could still add a temperature 
+optimum by putting a quadratic *inside* the exponent (a Gaussian tolerance 
+curve), but two coefficients is about all this short record can identify.
+::::
+
+
+::: {.callout-warning}
+## Important limitations, to be read before trusting any number below
+
+Treat every output as illustrative of method, not as an estimate, because:\
+* The climate covariates stand in for mosquito data.\
+* There are no population denominators used, so `scale` absorbs both the known
+human population size and the unknown case ascertainment rate.\
+* The data for two parasite species, _Plasmodium vivax_ and _falciparum_, are 
+pooled, even though they have different incubation periods, relapse behaviour, etc.\
+* Partly due to the pooling, the natural-history parameters ($\sigma,\gamma,\omega$)
+are estimated from the data rather than fixed to published vivax/falciparum biology.
+They are still held to a biologically plausible range by the optimiser bounds (see
+Step 6), but the data are what pick the value within that range, rather than the
+literature.\
+* The optimiser uses a small iteration budget so it runs quickly; it is **not** 
+run to convergence. 
+
+:::
 
 **The data.** The SEIRS reuses the case matrix and per-province climate already built
 in Parts 2–3 and 5. The only difference is that it standardises climate **globally**
@@ -2044,7 +2094,7 @@ cat(sprintf("SEIRS inputs: %d provinces x %d months, %.0f total cases\n",
             nrow(cases_mat), ncol(cases_mat), sum(cases_mat)))
 ```
 
-The model is built up in five small pieces below, then fitted. Read them in order.
+The model is built up in five chunks below, then fitted. 
 
 **Step 1: the transmission dynamics (the ODE right-hand side).** This is the SEIRS
 model itself: the instantaneous rate of change of each compartment. `state` is a
@@ -2060,7 +2110,7 @@ seirs_rhs <- function(state, beta, sigma, gamma, omega) {
          beta * S * I - sigma * E,     #  dE  (newly infected, then become infectious)
          sigma * E   - gamma * I,      #  dI  (become infectious, then recover)
          gamma * I   - omega * R,      #  dR  (recover, then lose immunity)
-         sigma * E)                    #  dC  (cumulative NEW infections)
+         sigma * E)                    #  dC  (cumulative NEW infectious -- those more likely to be detectable)
 }
 ```
 
@@ -2070,12 +2120,27 @@ month, for all provinces simultaneously. A burn-in lets the model settle before 
 record anything, and we reset the accumulator `C` at the start of each month so that
 `incidence` holds the new infections *within* that month.
 
+A proper ODE solver would be more accurate but slower. 
+
 ```{r seirs-sim, echo=TRUE, eval=TRUE}
 simulate_incidence <- function(beta, sigma, gamma, omega,
-                               i0 = 1e-4, e0 = 1e-4, burn_in_months = 12) {
-  n_prov <- nrow(beta); n_months <- ncol(beta); dt <- 1 / SUBSTEPS_PER_MONTH
-  state <- rbind(rep(1 - i0 - e0, n_prov), rep(e0, n_prov),
-                 rep(i0, n_prov), rep(0, n_prov), rep(0, n_prov))
+                               i0 = 1e-4, e0 = 1e-4, burn_in_months = 12,
+                               init_state = NULL, return_state = FALSE) {
+  n_prov <- nrow(beta); n_months <- ncol(beta)
+  dt <- 1 / SUBSTEPS_PER_MONTH
+  # Initial conditions. If init_state is supplied (used by the projection to continue from
+  # the disease state at the end of the historical fit) we start from it and skip the
+  # burn-in. Otherwise we start from a near-fully-susceptible population and burn in to
+  # settle; this default is what the fit uses and is smooth in the parameters, so the
+  # optimiser behaves. return_state = TRUE also returns the final state, so the fit can hand
+  # its end state to the projection.
+  if (!is.null(init_state)) {
+    state <- init_state
+    burn_in_months <- 0
+  } else {
+    state <- rbind(rep(1 - i0 - e0, n_prov), rep(e0, n_prov),
+                   rep(i0, n_prov), rep(0, n_prov), rep(0, n_prov))
+  }
   step <- function(state, beta_m) {                    # one RK4 sub-step
     k1 <- seirs_rhs(state,              beta_m, sigma, gamma, omega)
     k2 <- seirs_rhs(state + 0.5*dt*k1,  beta_m, sigma, gamma, omega)
@@ -2095,9 +2160,9 @@ simulate_incidence <- function(beta, sigma, gamma, omega,
     state[5, ] <- 0; beta_m <- beta[, m]               # reset accumulator; use this month's beta
     for (s in seq_len(SUBSTEPS_PER_MONTH)) state <- step(state, beta_m)
     incidence[, m] <- state[5, ]
-    state[1:4, ] <- pmin(pmax(state[1:4, ], 0), 1)     # keep compartments in [0, 1]
+    state[1:4, ] <- pmin(pmax(state[1:4, ], 0), 1)     # keep compartments in [0, 1]; shouldn't need this but since manually RK4, good to check
   }
-  incidence
+  if (return_state) list(incidence = incidence, state = state) else incidence
 }
 ```
 
@@ -2126,13 +2191,14 @@ neg_log_lik <- function(params, cases, ztemp, zrain) {
   beta_t <- pmin(pmax(beta_t, 1e-6), 50)
   incidence <- simulate_incidence(beta_t, p$sigma, p$gamma, p$omega)
   lam <- pmax(p$scale * incidence, 1e-8)                         # expected reported cases
-  sum(lam - cases * log(lam))   # Poisson NLL (constant omitted)
+  sum(lam - cases * log(lam))   # Poisson NLL, additive constant log(cases!) omitted
 }
 ```
 
-**Step 5: sensible starting values.** A reasonable initial guess for the optimiser:
-incubation ~0.5 months, infectious ~1 month, immunity ~6 months, no climate effect to
-begin with, and per-province baselines scaled to each province's mean caseload.
+**Step 5: starting values.** An initial guess for the optimiser: incubation 
+~0.5 months (includes the mosquito transmission cycle), infectious ~1 month, 
+immunity ~6 months, no climate effect to begin with, and per-province baselines 
+scaled to each province's mean caseload.
 
 ```{r seirs-x0, echo=TRUE, eval=TRUE}
 default_x0 <- function(cases) {
@@ -2146,39 +2212,68 @@ default_x0 <- function(cases) {
 **Step 6: fit.** Now minimise the negative log-likelihood with a bounded optimiser
 (`L-BFGS-B`). The `lower`/`upper` vectors keep every parameter in a biologically
 plausible range (incubation/infectious periods between ~0.05 and 3 months, immunity
-between 0.5 and 36 months, the climate sensitivities within ±2), and `maxit` is kept
-deliberately small so it finishes quickly (raise it for a real fit).
+between 0.5 and 36 months, the climate sensitivities within ±2). It runs for `maxit = 200`
+iterations with a relaxed convergence tolerance (`factr`), which is enough for this
+weakly-identified model to settle; reduce `maxit` for a quicker, rougher live-demo fit.
 
 ```{r seirs-fit, echo=TRUE, eval=TRUE}
 n <- nrow(cases_mat)
 x0 <- default_x0(cases_mat)
-lower <- c(log(1/3.0), log(1/3.0), log(1/36.0), -2, -2,
-           rep(log(0.05), n), rep(log(1.0),  n))
-upper <- c(log(1/0.05), log(1/0.05), log(1/0.5), 2, 2,
-           rep(log(30),   n), rep(log(1e9),  n))
+# Parameter order (matches unpack_params): sigma, gamma, omega, b_temp, b_rain,
+# then beta0 (one per province), then scale (one per province). Rates are in log-space.
+lower <- c(log(1/3.0),  log(1/3.0),  log(1/36.0),  -2, -2,   # sigma, gamma, omega, b_temp, b_rain
+           rep(log(0.05), n), rep(log(1.0),  n))             # beta0 (per province), scale (per province)
+upper <- c(log(1/0.05), log(1/0.05), log(1/0.5),   2,  2,    # sigma, gamma, omega, b_temp, b_rain
+           rep(log(30),   n), rep(log(1e9),  n))             # beta0 (per province), scale (per province)
 
-# maxit small so it runs quickly (raise for a real fit). ndeps matches SciPy's default
-# gradient step, so this tracks the notebook as closely as the two L-BFGS-B allow.
+# 200 iterations with a relaxed convergence tolerance (factr): the beta0/scale ridge is
+# flat, so the default tight tolerance never triggers and the fit would otherwise just run
+# to the iteration cap (reporting "code 1") despite having effectively settled. ndeps
+# matches SciPy's default gradient step. factr = 1e9 matches SciPy's ftol = 1e9 * eps.
 fit <- optim(x0, neg_log_lik, method = "L-BFGS-B",
              lower = lower, upper = upper,
              cases = cases_mat, ztemp = ztemp, zrain = zrain,
-             control = list(maxit = 20, ndeps = rep(1e-8, length(x0)))) 
+             control = list(maxit = 200, factr = 1e9, ndeps = rep(1e-8, length(x0))))
 p <- unpack_params(fit$par, n)
 
-cat(sprintf("convergence code=%d  nll=%.1f\n", fit$convergence, fit$value))
+cat(sprintf("convergence code=%d  nll=%.1f\n", fit$convergence, fit$value))  # 0 converged; 1 did not
 cat(sprintf("incubation period 1/sigma = %.2f months\n", 1/p$sigma))
 cat(sprintf("infectious period 1/gamma = %.2f months\n", 1/p$gamma))
 cat(sprintf("immunity duration 1/omega = %.2f months\n", 1/p$omega))
 cat(sprintf("climate sensitivity b_temp = %+.3f  b_rain = %+.3f\n", p$b_temp, p$b_rain))
 ```
 
-**Step 7: diagnostics.** Finally, rebuild the fitted incidence from the estimated
-parameters and compare it, province by province, against the observed monthly counts.
+**Step 7: diagnostics.** A snapshot of the fitted per-province parameters, with the
+observed (reported) and model-fitted total cases side by side, sorted by observed
+caseload. `R0_baseline` is the baseline reproduction number $\beta_{0}/\gamma$
+(transmission rate over recovery rate, at full susceptibility).
+
+```{r seirs-params, echo=TRUE, eval=TRUE}
+# Fitted expected monthly cases (the Poisson mean), reused by the plot below. We also keep
+# the disease state at the end of the historical period, to seed the projection (below).
+beta_fit      <- p$beta0 * exp(p$b_temp * ztemp + p$b_rain * zrain)
+beta_fit      <- pmin(pmax(beta_fit, 1e-6), 50)   # same clipping as the likelihood, so the diagnostic matches the fitted model
+sim_hist      <- simulate_incidence(beta_fit, p$sigma, p$gamma, p$omega, return_state = TRUE)
+lam_fit       <- p$scale * sim_hist$incidence
+fit_end_state <- sim_hist$state   # S/E/I/R/C at the last historical month; the projection continues from here
+
+# Per-province fit snapshot (mirrors the Python param_summary table).
+param_summary <- tibble::tibble(
+  province_en    = rownames(cases_mat),
+  beta0          = p$beta0,
+  R0_baseline    = p$beta0 / p$gamma,   # gamma is shared across provinces
+  scale          = p$scale,
+  reported_cases = rowSums(cases_mat),  # observed total
+  fitted_cases   = rowSums(lam_fit)     # model total (expected)
+) %>% arrange(desc(reported_cases))
+
+knitr::kable(param_summary, digits = c(NA, 3, 2, 1, 0, 0))
+```
+
+Continuing the diagnostics, compare the fitted incidence (`lam_fit`, computed above)
+against the observed monthly counts, province by province.
 
 ```{r seirs-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-beta_fit <- p$beta0 * exp(p$b_temp * ztemp + p$b_rain * zrain)
-lam_fit  <- p$scale * simulate_incidence(beta_fit, p$sigma, p$gamma, p$omega)
-
 ss_res <- sum((cases_mat - lam_fit)^2)
 ss_tot <- sum((cases_mat - mean(cases_mat))^2)
 cat(sprintf("pseudo-R2 (vs fitted lambda): %.3f\n", 1 - ss_res / ss_tot))
@@ -2215,51 +2310,50 @@ jsonlite::write_json(list(
 ), file.path(.odir, "r_seirs.json"), matrix = "rowmajor", digits = NA, auto_unbox = TRUE)
 ```
 
-**A note on identifiability.** Fitting this exact model in both R and Python is
-instructive. `beta0` (baseline transmission) and `scale` (population × reporting rate)
-trade off to set the case *level*, so the optimiser can shuffle magnitude between
-them, and the natural-history rates ($\sigma,\gamma,\omega$) are only weakly
-constrained by the data. As a result the two implementations can reach similar
-likelihoods with noticeably different individual parameters, a textbook symptom of
-**non-identifiability**. The practical lesson, and the warning above made concrete:
-trust the model's *predictions* and the climate sensitivities `b_temp`/`b_rain`, not
-the individual parameter values. This is why the verification in
-`python_workflow/compare.R` reports the fitted incidence and climate coefficients and
-flags the level parameters as weakly identified, rather than expecting `beta0`/`scale`
-to match; run it to see the actual R-versus-Python differences for your fit.
+::: {.callout-note}
+## A note on identifiability
+`beta0` (baseline transmission) and `scale` (population × reporting rate) trade 
+off to set the case *level*, so the optimiser can shuffle magnitude between 
+them, and the natural-history rates ($\sigma,\gamma,\omega$) are only weakly 
+constrained by the data. 
 
-**Projecting forward, and model consensus.** The mechanistic model can also be pushed
-forward under CMIP6, exactly as the statistical model was in Part 6. We re-simulate
-each climate model separately, standardising the future climate with the *same global
-historical mean and standard deviation* the model was fitted with. We plot the
-projected annual cases (ensemble mean and interquartile band, as in Part 6), then map
-the **consensus**: the fraction of models in which a province's annual cases increase
-from the first to the last decade. Because the SEIRS is bounded (saturation and waning
-immunity), it does not drift the way the cumulative-sum reconstruction does, so its
-projected *levels* are more stable, but the weak identifiability and every earlier
-caveat still apply. The map follows the model-agreement approach of
-[Sexton et al. (2026)](https://doi.org/10.1016/j.ecoinf.2026.103899){target="_blank"}
-and reuses the helpers from Part 6.
+This is very clearly shown when comparing the python and R outputs.
+:::
+
+**Step 8: Projecting forward, and model consensus.** The mechanistic model can
+also be projected forward under CMIP6, exactly as the statistical model was in
+Part 6. For each climate model we *continue* the simulation from the disease state
+at the end of the historical fit and run the future months only, seeded that way so
+there is no artificial restart or initial-epidemic transient (this is the same idea
+as the Part 6 ARX projection, which continues from the last observed month). The
+future climate is standardised with the *same global historical mean and standard
+deviation* the model was fitted with. We plot the projected annual cases (ensemble
+mean and interquartile band, as in Part 6).
 
 ```{r seirs-project, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
 # Global (shared) historical scale the SEIRS was fitted with; see seirs-setup.
-tmean <- mean(clim_temp); tsd <- popsd(clim_temp)   # Kelvin
-rmean <- mean(clim_rain); rsd <- popsd(clim_rain)   # m/month
+tmean <- mean(clim_temp) - 273.15; tsd <- popsd(clim_temp)   # historical mean in °C (CMIP tas is °C); SD is offset-invariant
+rmean <- mean(clim_rain); rsd <- popsd(clim_rain)            # m/month
 
-# Project the fitted SEIRS under one climate model's future climate (province x month).
-seirs_project_one <- function(tas_pm, pr_pm) {
-  ztemp_f <- ((tas_pm + 273.15) - tmean) / tsd       # CMIP tas is °C; clim_temp is Kelvin
-  zrain_f <- (pr_pm - rmean) / rsd
-  beta_t  <- p$beta0 * exp(p$b_temp * ztemp_f + p$b_rain * zrain_f)
-  beta_t  <- pmin(pmax(beta_t, 1e-6), 50)            # same clipping as the likelihood
-  p$scale * simulate_incidence(beta_t, p$sigma, p$gamma, p$omega)
+# Project the fitted SEIRS under one climate model's future climate, continuing from the
+# disease state at the end of the historical fit and projecting future months only (as the
+# Part 6 ARX projection continues from the last observed month).
+seirs_project_one <- function(tas_pm, pr_pm, dates) {
+  zt <- (tas_pm - tmean) / tsd                       # both in °C (see tmean above), as the Python does
+  zr <- (pr_pm - rmean) / rsd
+  beta_t <- p$beta0 * exp(p$b_temp * zt + p$b_rain * zr)
+  beta_t <- pmin(pmax(beta_t, 1e-6), 50)             # same clipping as the likelihood
+  fut <- which(dates > hist_end)                     # future months only
+  p$scale * simulate_incidence(beta_t[, fut, drop = FALSE], p$sigma, p$gamma, p$omega,
+                               init_state = fit_end_state)   # seed from the fit's end state; no burn-in
 }
 
-# scenario -> province x month x model of projected reported cases (dropping unstable models)
+# scenario -> province x future-month x model of projected reported cases
+# (exclude climate models that produced unstable future estimates)
 seirs_project_scenario <- function(scenario) {
   tas <- cmip_tas[[scenario]]; pr <- cmip_pr[[scenario]]
   lst <- lapply(seq_len(dim(tas$arr)[3]),
-                function(m) seirs_project_one(tas$arr[, , m], pr$arr[, , m]))
+                function(m) seirs_project_one(tas$arr[, , m], pr$arr[, , m], tas$dates))
   arr  <- simplify2array(lst)
   keep <- apply(arr, 3, function(x) all(is.finite(x)))
   arr[, , keep, drop = FALSE]
@@ -2267,7 +2361,7 @@ seirs_project_scenario <- function(scenario) {
 
 seirs_arr   <- list("SSP1-2.6" = seirs_project_scenario("SSP1-2.6"),
                     "SSP5-8.5" = seirs_project_scenario("SSP5-8.5"))
-seirs_dates <- cmip_tas[[1]]$dates
+seirs_dates <- { d <- cmip_tas[[1]]$dates; d[d > hist_end] }   # future months only
 
 # Projected annual cases per province: ensemble mean and interquartile band (reuses annual_proj).
 seirs_annual <- bind_rows(
@@ -2289,7 +2383,7 @@ print(ggplot(seirs_annual, aes(year, mean, colour = scenario, fill = scenario)) 
   theme(axis.text.x = element_text(angle = 20, hjust = 1)))
 ```
 
-**Compare with the statistical projection.** Put these SEIRS trajectories next to the
+**7.2 Compare with the statistical projection.** Put these SEIRS trajectories next to the
 ARX ones in Part 6. How do the projected *levels* differ over the century, and what in
 each model's construction explains it?
 
@@ -2299,7 +2393,7 @@ each model's construction explains it?
 <p><br></p>
 
 :::: {.callout-tip collapse="true"}
-## Suggested answer: click to reveal (try it first)
+## 7.2 Suggested answer: click to reveal (try it first)
 The ARX trajectories drift upward without limit (some far past any plausible case count),
 while the SEIRS ones stay in a realistic range and flatten or oscillate. The reason is
 structural. The ARX model rebuilds counts by cumulatively summing predicted monthly
@@ -2310,10 +2404,14 @@ cases through a fitted per-province `scale`, so its output is bounded by that sc
 (calibrated to the observed caseload), while saturation and waning immunity keep the
 dynamics finite. That boundedness comes from the fitted `scale`, not from plugging in a
 real population, so the SEIRS gives sensible-looking levels but not a true attack rate.
-For long-range projection the bounded model is the safer choice; for the ARX, trust the
-direction and the scenario gap, not the numbers.
+For long-range projection the bounded model is the safer choice; the ARX is really
+illustrative only, but shows a consistent direction of change and gap between
+SSP scenarios.
 ::::
 
+Now we map the **consensus**: the fraction of models in which a province's 
+annual cases change in similar direction and quantity from the first to the last 
+decade.The map reuses the helpers from Part 6.
 ```{r seirs-consensus, echo=TRUE, eval=TRUE, fig.width=11, fig.height=6}
 # Reuse the Part 6 consensus helpers (model_change, consensus_df) on the SEIRS projection.
 seirs_consensus <- bind_rows(
@@ -2336,12 +2434,11 @@ print(ggplot(seirs_consensus_sf) +
   theme(axis.text = element_blank(), axis.ticks = element_blank()))
 ```
 
-**Discussion (model structure): compare this SEIRS consensus map with the statistical
-one in Part 6. They agree closely under the high-emissions scenario (SSP5-8.5) but
-differ markedly under the low-emissions one (SSP1-2.6). Why would two reasonable models
-disagree most when the emissions signal is weakest, and what does that tell you about
-where the uncertainty comes from? (It may help to recall that the statistical
-trajectories can grow without bound while the SEIRS ones cannot.)**
+**7.3 Discussion (model structure): compare this SEIRS consensus map with the
+statistical one in Part 6. Both are now seeded from the end of the fit and cover the
+future only, so they are on the same footing. Where do the two models agree on the
+direction of change, and where do they differ? What does any disagreement tell you
+about where the uncertainty comes from?**
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
@@ -2349,41 +2446,60 @@ trajectories can grow without bound while the SEIRS ones cannot.)**
 <p><br></p>
 
 :::: {.callout-tip collapse="true"}
-## Suggested answer: click to reveal (try it first)
-Under SSP5-8.5 the climate forcing is large, so it dominates both models and they agree
-on the direction of change. Under SSP1-2.6 the forcing is small, so the sign of the
-change in each province is only weakly set by climate and is instead decided by each
-model's *structure*, which is why two reasonable models diverge most exactly where the
-signal is weakest.
+## 7.3 Suggested answer: click to reveal (try it first)
+Because both models now start from the same fitted end state and run over the same
+future window, differences between the two maps reflect the models' *structure*, not an
+artefact of how each projection was set up. Where the climate signal is strong it tends
+to dominate both models, so they agree on the direction of change and that agreement can
+be reported with more confidence. Where the signal is weak, the direction in each
+province is only lightly set by climate and is instead decided by each model's structure,
+so any disagreement there is *structural* (model-form) uncertainty.
 
-The two structures differ in ways that matter here. The statistical model is quadratic
+The two structures still differ in ways that matter. The statistical model is quadratic
 in temperature and rainfall, so a province sitting near the fitted optimum can fall
 either side of the hump with a tiny climate nudge, and it rebuilds counts by cumulatively
 summing predicted changes, an unbounded random walk that drifts (this is why its
-trajectories can grow implausibly large, even past the population, and why its sign under
-weak forcing is partly reconstruction noise). The SEIRS forces transmission monotonically
-and is bounded by saturation and waning immunity, so its direction is more spatially
-coherent and its levels stay finite.
+trajectories can grow implausibly large, even past the population). The SEIRS forces
+transmission monotonically and is bounded by saturation and waning immunity, so its levels
+stay finite.
 
 The lesson is that there are two different uncertainties in play. The consensus map shows
 disagreement *across climate models*; the gap between the two maps shows disagreement
-*across disease-model structure* (structural or model-form uncertainty), and at low
-emissions the structural uncertainty is the larger one. Neither is a bug: it is a reason
-to report agreement and the direction of change rather than absolute numbers, and to
-prefer a bounded model for long-range work.
+*across disease-model structure* (structural or model-form uncertainty). Reporting the
+direction of change where the models agree, and preferring a bounded model for long-range
+work, is the honest way to handle both.
 ::::
 
-**Discussion (SEIRS): the statistical model (Parts 5–6) and this mechanistic model
+**7.4 Discussion (SEIRS): the statistical model (Parts 5–6) and this mechanistic model
 both link climate to malaria. What can the mechanistic model tell you that the
-statistical one cannot, and vice versa? And why are the fitted natural-history
-parameters ($\sigma,\gamma,\omega$) a weakness here, and how would you fix it?**
+statistical one cannot, and vice versa? **
 
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
 ```
 <p><br></p>
 
-**Ways to improve it: the SEIRS works in population *fractions* and folds the true
+:::: {.callout-tip collapse="true"}
+## 7.4 Suggested answer: click to reveal (try it first)
+The mechanistic SEIRS gives interpretable epidemiological quantities: a transmission
+rate, a baseline reproduction number, and incubation/infectious/immunity durations,
+which map onto biology, can be compared with the literature, and correspond to things
+an intervention could change. Because it represents the process (susceptible depletion,
+waning immunity), it captures saturation and threshold behaviour, stays bounded rather
+than drifting, and can answer counterfactual "what if transmission were reduced"
+questions the statistical model cannot. That makes it the more defensible tool for
+long-range projection and for reasoning about interventions.
+
+The statistical (ARX) model, in return, commits to no mechanism, so it cannot be wrong
+about one: it estimates the empirical climate-to-cases association directly. It is
+simpler, faster, has fewer parameters to identify, and is transparent about being
+purely data-driven, which is a strength when the mechanism is uncertain or the goal is
+just to detect and quantify a climate signal. Its cost is that it offers no biological
+interpretation and, as Part 6 showed, extrapolates poorly. In short: the statistical
+model is a good *description*, the mechanistic model a (contestable) *explanation*.
+::::
+
+**7.5 Ways to improve it: the SEIRS works in population *fractions* and folds the true
 population into the fitted `scale`. What would you gain by bringing in actual
 per-province human population numbers, and what new problem appears if you need them
 out to 2100?**
@@ -2394,7 +2510,7 @@ out to 2100?**
 <p><br></p>
 
 :::: {.callout-tip collapse="true"}
-## Suggested answer: click to reveal (try it first)
+## 7.5 Suggested answer: click to reveal (try it first)
 Using real per-province populations as the denominator would separate the two things
 `scale` currently confounds: population size and reporting rate. You would recover an
 interpretable *attack rate* (cases per head), the compartments would be bounded by a
