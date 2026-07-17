@@ -43,3 +43,9 @@ session2_climate_data/area_weight_diagram.svg
 
 # macOS
 .DS_Store
+
+**/*.quarto_ipynb
+.agents/
+skills-lock.json
+.claude/
+agent/

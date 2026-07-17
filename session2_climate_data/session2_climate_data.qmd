@@ -423,20 +423,19 @@ library(here)
 data_dir <- here::here("data")
 
 # Read the JSON line list and parse dates ---------------------------------
-df <- fromJSON(file.path(data_dir, "malaria", "calendar.json"))
-df <- df %>%
+df <- fromJSON(file.path(data_dir, "malaria", "calendar.json")) |>
   mutate(
     date_daily = as.Date(as.character(blood_draw_date), format = "%Y%m%d"),
     month      = floor_date(date_daily, "month")
   )
 
 # Preview what we have loaded ---------------------------------------------
-knitr::kable(head(df, 5))      # the first 5 rows as a clean table in quarto
-
-cat("Number of unique province names:", n_distinct(df$province_en), "\n")
-cat("Number of unique district names:", n_distinct(df$district_en), "\n")
-cat("Number of unique blood_draw_date:", n_distinct(df$blood_draw_date), "\n")
+df |>
+  slice_head(n = 5) |>
+  knitr::kable()
 ```
+
+There are `r n_distinct(df$province_en)` unique provinces, `r n_distinct(df$district_en)` unique districts, and `r n_distinct(df$blood_draw_date)` unique blood draw dates in the data.
 
 **2.4 The results column pools *P. vivax* and *P. falciparum* together. Why might
 it matter, for a climate-driven analysis, that these two species are combined?**
@@ -459,8 +458,12 @@ with climate would dominate. A potential future direction to explore.
 Counts for Thailand per month and per day
 ```{r part2-counts, echo=TRUE, eval=TRUE, fig.width=10, fig.height=6}
 # Total counts per day and per month --------------------------------------
-counts_per_day <- df %>% count(date_daily, name = "count") %>% arrange(date_daily)
-counts_per_month <- df %>% count(month, name = "count") %>% arrange(month)
+counts_per_day <- df |>
+  count(date_daily, name = "count") |>
+  arrange(date_daily)
+counts_per_month <- df |>
+  count(month, name = "count") |>
+  arrange(month)
 
 p_day <- ggplot(counts_per_day, aes(date_daily, count)) +
   geom_line() +
@@ -477,38 +480,39 @@ p_month <- ggplot(counts_per_month, aes(month, count)) +
   theme_bw() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-print(p_day / p_month)
+p_day / p_month
 ```
 
 Counts per province per month: since we will be building models estimating the infection counts per province per month, including the impact of the climate.
 ```{r part2-province, echo=TRUE, eval=TRUE, fig.width=11, fig.height=11}
 # Counts per province per month -------------------------------------------
-counts_prov_month <- df %>%
-  count(month, province_en, name = "Count") %>%
+counts_prov_month <- df |>
+  count(month, province_en, name = "Count") |>
   arrange(month, province_en)
 
 # Keep provinces with more than 12 months of reported cases 
-prov_order <- unique(counts_prov_month$province_en)
-selected_provinces <- prov_order[
-  vapply(prov_order,
-         function(p) sum(counts_prov_month$province_en == p) > 12,
-         logical(1))
-]
+selected_provinces <- counts_prov_month |>
+  add_count(province_en, name = "n_months") |>
+  filter(n_months > 12) |>
+  distinct(province_en) |>
+  pull(province_en)
 cat("Selected provinces:", length(selected_provinces), "\n")
 
 # Facet titles: how many of the possible months each province reports ---------
 n_possible <- n_distinct(counts_prov_month$month)     # total months in the data (18)
-prov_counts <- counts_prov_month %>%
-  filter(province_en %in% selected_provinces) %>%
-  group_by(province_en) %>%
+prov_counts <- counts_prov_month |>
+  filter(province_en %in% selected_provinces) |>
+  group_by(province_en) |>
   summarise(n_months = n_distinct(month), .groups = "drop")
-prov_lab <- setNames(
-  paste0(prov_counts$province_en, " (", prov_counts$n_months, "/", n_possible, ")"),
-  prov_counts$province_en
-)
+prov_lab <- prov_counts |>
+  transmute(
+    province_en,
+    label = paste0(province_en, " (", n_months, "/", n_possible, ")")
+  ) |>
+  tibble::deframe()
 
-print(counts_prov_month %>%
-  filter(province_en %in% selected_provinces) %>%
+print(counts_prov_month |>
+  filter(province_en %in% selected_provinces) |>
   ggplot(aes(month, Count)) +
   geom_line() + geom_point(size = 0.6) +
   facet_wrap(~ province_en, scales = "free_y",
@@ -538,13 +542,13 @@ forested provinces often behave differently from central ones.
 The natural next question is whether we could work at a finer spatial scale.
 ```{r part2-district, echo=TRUE, eval=TRUE, fig.width=8, fig.height=7}
 # Counts per district per month (finer spatial scale) ---------------------
-counts_dist_month <- df %>%
+counts_dist_month <- df |>
   count(month, district_en, name = "Count")
 
 # Would a finer (district) scale work? 
 n_months_total <- n_distinct(df$month)                  # 18 possible months
-dist_months <- counts_dist_month %>%
-  group_by(district_en) %>%
+dist_months <- counts_dist_month |>
+  group_by(district_en) |>
   summarise(n_months = n_distinct(month), .groups = "drop")
 
 cat("Districts in total:", nrow(dist_months), "\n")
@@ -553,22 +557,27 @@ cat("Districts with >12 months of reported cases:",
 cat("Provinces with >12 months (from above):", length(selected_provinces), "\n")
 
 # Share of all reported cases falling in the qualifying districts vs provinces
-ok_dist <- dist_months$district_en[dist_months$n_months > 12]
+ok_dist <- dist_months |>
+  filter(n_months > 12) |>
+  pull(district_en)
 cat(sprintf("The %d qualifying districts hold %.1f%% of all reported cases\n",
             length(ok_dist), 100 * mean(df$district_en %in% ok_dist)))
 cat(sprintf("The %d qualifying provinces hold %.1f%% of all reported cases\n",
             length(selected_provinces), 100 * mean(df$province_en %in% selected_provinces)))
 
 # Months of reported cases per province and per district
-prov_months <- counts_prov_month %>%
-  group_by(province_en) %>%
+prov_months <- counts_prov_month |>
+  group_by(province_en) |>
   summarise(n_months = n_distinct(month), .groups = "drop")
 
 months_bar <- function(d, unit_label) {
   ggplot(d, aes(n_months)) +
     geom_bar(fill = "steelblue") +
     geom_vline(xintercept = 12.5, linetype = "dashed", colour = "red") +
-    scale_x_continuous(breaks = 1:n_months_total, limits = c(0.5, n_months_total + 0.5)) +
+    scale_x_continuous(
+      breaks = seq_len(n_months_total),
+      limits = c(0.5, n_months_total + 0.5)
+    ) +
     labs(y = paste0("number of ", unit_label)) +
     theme_bw()
 }
@@ -670,7 +679,9 @@ shape_file <- st_read(
 region_names <- shape_file$ADM1_EN
 
 # Preview what we have loaded ---------------------------------------------
-knitr::kable(head(shape_file, 5))      # the first 5 rows as a clean table in quarto
+shape_file |>
+  slice_head(n = 5) |>
+  knitr::kable()      # the first 5 rows as a clean table in quarto
 
 cat("Number of provinces in shapefile:", length(region_names), "\n")
 
@@ -679,7 +690,7 @@ if (length(missing))
   cat("Provinces not matched in shapefile and dropped: ",
           paste(missing, collapse = ", "), "\n")
 
-selected_provinces <- selected_provinces[selected_provinces %in% region_names]
+selected_provinces <- intersect(selected_provinces, region_names)
 cat("Provinces carried forward (matched to boundaries):",
     length(selected_provinces), "\n")
 ```
@@ -728,8 +739,10 @@ temperature and rainfall with the province boundaries drawn on top.
 tas_mean_c <- mean(tas_r) - 273.15          # Kelvin -> Celsius for display
 pr_mean    <- mean(pr_r)
 
-map_df_t <- as.data.frame(tas_mean_c, xy = TRUE); names(map_df_t)[3] <- "value"
-map_df_r <- as.data.frame(pr_mean,    xy = TRUE); names(map_df_r)[3] <- "value"
+map_df_t <- as.data.frame(tas_mean_c, xy = TRUE) |>
+  rename(value = last_col())
+map_df_r <- as.data.frame(pr_mean, xy = TRUE) |>
+  rename(value = last_col())
 
 m_t <- ggplot(map_df_t, aes(x, y, fill = value)) +
   geom_raster() +
@@ -771,8 +784,14 @@ cell_region <- vapply(within,
                       integer(1))
 
 # Check 1: colour each grid cell by the province it landed in.
-assign_df <- data.frame(x = grid_xy[, 1], y = grid_xy[, 2], province_id = cell_region)
-p_assign <- ggplot(subset(assign_df, !is.na(province_id)), aes(x, y, fill = province_id)) +
+assign_df <- tibble::tibble(
+  x = grid_xy[, 1],
+  y = grid_xy[, 2],
+  province_id = cell_region
+)
+p_assign <- assign_df |>
+  filter(!is.na(province_id)) |>
+  ggplot(aes(x, y, fill = province_id)) +
   geom_raster() +
   geom_sf(data = shape_file, fill = NA, colour = "grey20",
           linewidth = 0.2, inherit.aes = FALSE) +
@@ -782,9 +801,14 @@ p_assign <- ggplot(subset(assign_df, !is.na(province_id)), aes(x, y, fill = prov
   theme_bw()
 
 # Check 2: which provinces are carried into the model (selected in Part 2)?
-modelled_sf <- shape_file
-modelled_sf$modelled <- ifelse(shape_file$ADM1_EN %in% selected_provinces,
-                               "modelled", "not modelled")
+modelled_sf <- shape_file |>
+  mutate(
+    modelled = if_else(
+      ADM1_EN %in% selected_provinces,
+      "modelled",
+      "not modelled"
+    )
+  )
 p_modelled <- ggplot(modelled_sf) +
   geom_sf(aes(fill = modelled), colour = "grey40", linewidth = 0.2) +
   scale_fill_manual(values = c("modelled" = "#08519c", "not modelled" = "grey88"),
@@ -823,18 +847,20 @@ to_long <- function(mat, value_name) {
   m <- as.matrix(mat)
   rownames(m) <- region_names
   colnames(m) <- as.character(clim_months)
-  as.data.frame(m) %>%
-    tibble::rownames_to_column("province_en") %>%
-    pivot_longer(-province_en, names_to = "month", values_to = value_name) %>%
+  as.data.frame(m) |>
+    tibble::rownames_to_column("province_en") |>
+    pivot_longer(-province_en, names_to = "month", values_to = value_name) |>
     mutate(month = as.Date(month))
 }
 
-clim_long <- to_long(tas_prov, "temp_k") %>%
-  left_join(to_long(pr_prov, "rain_m"), by = c("province_en", "month")) %>%
-  mutate(temp_c = temp_k - 273.15) %>%
+clim_long <- to_long(tas_prov, "temp_k") |>
+  left_join(to_long(pr_prov, "rain_m"), by = c("province_en", "month")) |>
+  mutate(temp_c = temp_k - 273.15) |>
   filter(province_en %in% selected_provinces)
 
-knitr::kable(head(clim_long))
+clim_long |>
+  slice_head(n = 6) |>
+  knitr::kable()
 ```
 
 ::: {.callout-note collapse="true"}
@@ -1058,7 +1084,8 @@ cmip_files <- list(
 read_cmip_var <- function(path, var, from_date = NULL) {
   nc  <- nc_open(path)
   on.exit(nc_close(nc))
-  lon <- ncvar_get(nc, "lon"); lat <- ncvar_get(nc, "lat")
+  lon <- ncvar_get(nc, "lon")
+  lat <- ncvar_get(nc, "lat")
   tim <- ncvar_get(nc, "time")
   models <- ncvar_get(nc, "model")
   # time units -> dates  S
@@ -1066,7 +1093,7 @@ read_cmip_var <- function(path, var, from_date = NULL) {
   origin <- as.Date(sub(".*since ", "", tunits))
   dates  <- floor_date(origin + tim, "month")
   arr <- ncvar_get(nc, var)                       # dims in file order
-  dn  <- sapply(nc$var[[var]]$dim, function(d) d$name)
+  dn <- vapply(nc$var[[var]]$dim, function(d) d$name, character(1))
   # reorder to lon, lat, time, model
   perm <- match(c("lon", "lat", "time", "model"), dn)
   arr <- aperm(arr, perm)
@@ -1100,13 +1127,16 @@ ref_grid <- tas_r[[1]]        # reanalysis grid (already cropped to region)
 # Build a north-up, multi-layer SpatRaster from one model's [lon, lat, time] slice
 # (lon/lat treated as cell centres, so the extent is padded half a cell each side).
 slice_to_rast <- function(slc, lon, lat, ref) {
-  lon_o <- order(lon); lat_o <- order(lat)          # index ascending
+  lon_o <- order(lon)
+  lat_o <- order(lat)                               # index ascending
   slc <- slc[lon_o, lat_o, , drop = FALSE]          # lon asc, lat asc
   a <- aperm(slc, c(2, 1, 3))                        # -> lat x lon x time
   a <- a[dim(a)[1]:1, , , drop = FALSE]              # flip: north (max lat) = row 1
   r <- rast(a)                                       # 3rd dim -> layers
-  lo <- sort(lon); la <- sort(lat)
-  dx <- mean(diff(lo)); dy <- mean(diff(la))
+  lo <- sort(lon)
+  la <- sort(lat)
+  dx <- mean(diff(lo))
+  dy <- mean(diff(la))
   ext(r) <- c(min(lo) - dx/2, max(lo) + dx/2,
               min(la) - dy/2, max(la) + dy/2)
   crs(r) <- crs(ref)                                 # match the reanalysis grid
@@ -1137,9 +1167,10 @@ cmip_provincial_bymodel <- function(cv, var, ref, provinces) {
 
 # Ensemble summary (mean + interquartile band) from a per-model array.
 summarise_cmip <- function(bm, scenario, var) {
-  arr3 <- bm$arr; nt <- length(bm$dates)
+  arr3 <- bm$arr
+  nt <- length(bm$dates)
   qf <- function(p) as.vector(apply(arr3, c(1, 2), quantile, probs = p, na.rm = TRUE))
-  data.frame(
+  tibble::tibble(
     province_en = rep(bm$provinces, times = nt),
     month       = rep(bm$dates, each = length(bm$provinces)),
     scenario = scenario, variable = var,
@@ -1167,8 +1198,10 @@ align_models <- function(cv) {
   cv$models <- common_models
   cv
 }
-tas126 <- align_models(tas126); tas585 <- align_models(tas585)
-pr126  <- align_models(pr126);  pr585  <- align_models(pr585)
+tas126 <- align_models(tas126)
+tas585 <- align_models(tas585)
+pr126 <- align_models(pr126)
+pr585 <- align_models(pr585)
 cat("CMIP models in common across all four files:", length(common_models), "\n")
 
 # Per-model provincial climate (kept for the Part 6 projection)
@@ -1201,7 +1234,8 @@ cmip_mean_grid <- function(cv, var) {
 }
 
 cmip_map <- function(r, title, fill_scale) {
-  d <- as.data.frame(r, xy = TRUE); names(d)[3] <- "value"
+  d <- as.data.frame(r, xy = TRUE) |>
+    rename(value = last_col())
   ggplot(d, aes(x, y, fill = value)) +
     geom_raster() +
     geom_sf(data = shape_file, fill = NA, colour = "grey30",
@@ -1242,7 +1276,8 @@ lab  <- c(tas = "temperature (°C)", pr = "total precipitation (m/month)")
 cols <- c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")
 
 # Monthly model-mean, from the ensemble summary
-monthly <- cmip_summary %>% filter(province_en == example_province)
+monthly <- cmip_summary |>
+  filter(province_en == example_province)
 print(ggplot(monthly, aes(month, mean, colour = scenario)) +
   geom_line(linewidth = 0.4) +
   facet_wrap(~ variable, ncol = 1, scales = "free_y", labeller = labeller(variable = lab)) +
@@ -1252,20 +1287,22 @@ print(ggplot(monthly, aes(month, mean, colour = scenario)) +
   theme_bw())
 
 # Annual: ensemble mean, one member, and interquartile band across models
-annual <- monthly %>%
-  mutate(year = year(month)) %>%
-  group_by(scenario, variable, year) %>%
+annual <- monthly |>
+  mutate(year = year(month)) |>
+  group_by(scenario, variable, year) |>
   summarise(mean = mean(mean), q25 = mean(q25), q75 = mean(q75), .groups = "drop")
 
 # one member's annual series for this province (dips into the per-model arrays)
 one_annual <- bind_rows(
-  lapply(names(cmip_tas), function(sc) data.frame(
+  lapply(names(cmip_tas), function(sc) tibble::tibble(
     year = year(cmip_tas[[sc]]$dates), scenario = sc, variable = "tas",
     value = cmip_tas[[sc]]$arr[prov_idx, , one_model])),
-  lapply(names(cmip_pr), function(sc) data.frame(
+  lapply(names(cmip_pr), function(sc) tibble::tibble(
     year = year(cmip_pr[[sc]]$dates), scenario = sc, variable = "pr",
     value = cmip_pr[[sc]]$arr[prov_idx, , one_model]))
-) %>% group_by(scenario, variable, year) %>% summarise(value = mean(value), .groups = "drop")
+) |>
+  group_by(scenario, variable, year) |>
+  summarise(value = mean(value), .groups = "drop")
 
 annual_lines <- bind_rows(
   transmute(annual, year, scenario, variable, value = mean, series = "model mean"),
@@ -1310,10 +1347,10 @@ The plot below redraws the example province's temperature with the 5-95% range
 as well.
 
 ```{r part4-sol-spread, echo=TRUE, eval=TRUE, fig.width=8, fig.height=4}
-ci90 <- cmip_summary %>%
-  filter(province_en == example_province, variable == "tas") %>%
-  mutate(year = year(month)) %>%
-  group_by(scenario, year) %>%
+ci90 <- cmip_summary |>
+  filter(province_en == example_province, variable == "tas") |>
+  mutate(year = year(month)) |>
+  group_by(scenario, year) |>
   summarise(mean = mean(mean), q05 = mean(q05), q25 = mean(q25),
             q75 = mean(q75), q95 = mean(q95), .groups = "drop")
 
@@ -1404,26 +1441,30 @@ First, line up the malaria counts and the climate on the same province-by-month 
 
 ```{r part5-matrices, echo=TRUE, eval=TRUE}
 provinces <- selected_provinces
-months    <- sort(unique(clim_long$month))
+months <- clim_long |>
+  distinct(month) |>
+  arrange(month) |>
+  pull(month)
 
 # Case matrix: provinces x months, zero-filled where no cases were reported
-cases_mat <- counts_prov_month %>%
-  filter(province_en %in% provinces) %>%
-  complete(province_en = provinces, month = months, fill = list(Count = 0)) %>%
-  filter(month %in% months) %>%
-  arrange(province_en, month) %>%
-  pivot_wider(names_from = month, values_from = Count) %>%
-  tibble::column_to_rownames("province_en") %>%
+cases_mat <- counts_prov_month |>
+  filter(province_en %in% provinces) |>
+  complete(province_en = provinces, month = months, fill = list(Count = 0)) |>
+  filter(month %in% months) |>
+  arrange(province_en, month) |>
+  pivot_wider(names_from = month, values_from = Count) |>
+  tibble::column_to_rownames("province_en") |>
   as.matrix()
 cases_mat <- cases_mat[provinces, , drop = FALSE]
 
 # Climate matrices on the same grid
 mat_from_long <- function(var) {
-  clim_long %>%
-    select(province_en, month, all_of(var)) %>%
-    pivot_wider(names_from = month, values_from = all_of(var)) %>%
-    tibble::column_to_rownames("province_en") %>%
-    as.matrix() %>% `[`(provinces, , drop = FALSE)
+  mat <- clim_long |>
+    select(province_en, month, all_of(var)) |>
+    pivot_wider(names_from = month, values_from = all_of(var)) |>
+    tibble::column_to_rownames("province_en") |>
+    as.matrix()
+  mat[provinces, , drop = FALSE]
 }
 clim_temp <- mat_from_long("temp_k")   # Kelvin (offset irrelevant once standardised)
 clim_rain <- mat_from_long("rain_m")
@@ -1462,7 +1503,8 @@ upon the infection rates.
 ```{r part5-build, echo=TRUE, eval=TRUE}
 # Flatten province x month into one vector; X columns: temp, temp^2, rain, rain^2.
 Y  <- as.vector(z_cases_fd)
-zt <- z_temp[, -1]; zr <- z_rain[, -1]
+zt <- z_temp[, -1]
+zr <- z_rain[, -1]
 X  <- cbind(as.vector(zt), as.vector(zt)^2, as.vector(zr), as.vector(zr)^2)
 colnames(X) <- c("temp", "temp^2", "rain", "rain^2")
 ```
@@ -1538,14 +1580,18 @@ illustrate the logic and integration of the climate data. It uses one set of
 coefficients to represent the behaviour across all provinces.
 
 ```{r part5-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
+matrix_to_long <- function(x, series_name) {
+  dimnames(x) <- dimnames(cases_mat)
+  as.data.frame(x) |>
+    tibble::rownames_to_column("province_en") |>
+    pivot_longer(-province_en, names_to = "month", values_to = "cases") |>
+    mutate(month = as.Date(month), series = series_name)
+}
+
 fit_long <- bind_rows(
-  as.data.frame(cases_mat) %>% tibble::rownames_to_column("province_en") %>%
-    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>%
-    mutate(series = "observed"),
-  as.data.frame(fitted_cases) %>% tibble::rownames_to_column("province_en") %>%
-    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>%
-    mutate(series = "fitted")
-) %>% mutate(month = as.Date(month))
+  matrix_to_long(cases_mat, "observed"),
+  matrix_to_long(fitted_cases, "fitted")
+)
 
 print(ggplot(fit_long, aes(month, cases, colour = series)) +
   geom_line(linewidth = 0.6) +
@@ -1756,7 +1802,8 @@ project_one <- function(tas_pm, pr_pm, dates) {
 
 # scenario -> array (province x future-month x model), dropping unstable models
 project_scenario <- function(scenario) {
-  tas <- cmip_tas[[scenario]]; pr <- cmip_pr[[scenario]]
+  tas <- cmip_tas[[scenario]]
+  pr <- cmip_pr[[scenario]]
   nm  <- dim(tas$arr)[3]
   lst <- lapply(seq_len(nm), function(m)
     project_one(tas$arr[, , m], pr$arr[, , m], tas$dates)$proj)
@@ -1812,7 +1859,7 @@ annual_proj <- function(arr, dates, scenario) {
   # Collapse across models: mean and the 25th/75th percentiles for each province-year.
   # apply(ap, c(1, 2), .) keeps province & year, summarising over the model dimension;
   # as.vector unrolls it province-fastest, matching the rep() pattern below.
-  data.frame(
+  tibble::tibble(
     province_en = rep(provinces, times = length(years)),  # province cycles fastest
     year = rep(years, each = length(provinces)),          # year repeats per province block
     scenario = scenario,
@@ -1830,7 +1877,10 @@ proj_annual <- bind_rows(
 
 # Historical average annual reported cases per province (mean monthly count x 12),
 # a fixed reference line to compare the projection against.
-obs_annual <- data.frame(province_en = provinces, avg = rowMeans(cases_mat) * 12)
+obs_annual <- tibble::tibble(
+  province_en = provinces,
+  avg = rowMeans(cases_mat) * 12
+)
 
 # One small-multiple per province: the shaded band is the inter-model IQR, the line the mean.
 print(ggplot(proj_annual, aes(year, mean, colour = scenario, fill = scenario)) +
@@ -1868,7 +1918,7 @@ y-axis hides how far. Comparing the largest projected monthly count to the large
 ever observed makes it concrete:
 
 ```{r part6-sanity, echo=TRUE, eval=TRUE}
-sapply(proj_arr, function(a) max(a, na.rm = TRUE))   # largest projected monthly count, per scenario
+vapply(proj_arr, function(a) max(a, na.rm = TRUE), numeric(1)) # largest projected monthly count, per scenario
 max(cases_mat)                                       # largest observed monthly count
 ```
 
@@ -1930,8 +1980,11 @@ model_change <- function(arr, dates, n_win = 10) {
 # Fraction of models projecting an increase, per province (0 = all decrease, 1 = all increase).
 consensus_df <- function(arr, dates, scenario) {
   chg <- model_change(arr, dates)
-  data.frame(ADM1_EN = provinces, scenario = scenario,
-             frac_up = rowMeans(chg > 0))
+  tibble::tibble(
+    ADM1_EN = provinces,
+    scenario = scenario,
+    frac_up = rowMeans(chg > 0)
+  )
 }
 
 consensus <- bind_rows(
@@ -1939,7 +1992,9 @@ consensus <- bind_rows(
   consensus_df(proj_arr[["SSP5-8.5"]], fut_dates, "SSP5-8.5"))
 
 # Join to the province polygons and map (grey backdrop = provinces not in the panel).
-consensus_sf <- merge(shape_file[, "ADM1_EN"], consensus, by = "ADM1_EN")
+consensus_sf <- shape_file |>
+  select(ADM1_EN) |>
+  left_join(consensus, by = "ADM1_EN")
 
 print(ggplot(consensus_sf) +
   geom_sf(data = shape_file, fill = "grey95", colour = "grey80", linewidth = 0.2) +
@@ -2105,7 +2160,10 @@ new infections), so everything is vectorised over provinces at once.
 SUBSTEPS_PER_MONTH <- 20   # RK4 sub-steps per month
 
 seirs_rhs <- function(state, beta, sigma, gamma, omega) {
-  S <- state[1, ]; E <- state[2, ]; I <- state[3, ]; R <- state[4, ]
+  S <- state[1, ]
+  E <- state[2, ]
+  I <- state[3, ]
+  R <- state[4, ]
   rbind(-beta * S * I + omega * R,     #  dS  (lose to infection, gain from waning immunity)
          beta * S * I - sigma * E,     #  dE  (newly infected, then become infectious)
          sigma * E   - gamma * I,      #  dI  (become infectious, then recover)
@@ -2157,7 +2215,8 @@ simulate_incidence <- function(beta, sigma, gamma, omega,
   }
   incidence <- matrix(0, n_prov, n_months)
   for (m in seq_len(n_months)) {
-    state[5, ] <- 0; beta_m <- beta[, m]               # reset accumulator; use this month's beta
+    state[5, ] <- 0
+    beta_m <- beta[, m]                                # use this month's beta
     for (s in seq_len(SUBSTEPS_PER_MONTH)) state <- step(state, beta_m)
     incidence[, m] <- state[5, ]
     state[1:4, ] <- pmin(pmax(state[1:4, ], 0), 1)     # keep compartments in [0, 1]; shouldn't need this but since manually RK4, good to check
@@ -2186,7 +2245,8 @@ counts with a Poisson negative log-likelihood, the quantity the optimiser minimi
 
 ```{r seirs-nll, echo=TRUE, eval=TRUE}
 neg_log_lik <- function(params, cases, ztemp, zrain) {
-  n <- nrow(cases); p <- unpack_params(params, n)
+  n <- nrow(cases)
+  p <- unpack_params(params, n)
   beta_t <- p$beta0 * exp(p$b_temp * ztemp + p$b_rain * zrain)   # climate forces transmission
   beta_t <- pmin(pmax(beta_t, 1e-6), 50)
   incidence <- simulate_incidence(beta_t, p$sigma, p$gamma, p$omega)
@@ -2279,13 +2339,9 @@ ss_tot <- sum((cases_mat - mean(cases_mat))^2)
 cat(sprintf("pseudo-R2 (vs fitted lambda): %.3f\n", 1 - ss_res / ss_tot))
 
 diag_long <- bind_rows(
-  as.data.frame(cases_mat) %>% tibble::rownames_to_column("province_en") %>%
-    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>% mutate(series = "observed"),
-  as.data.frame(lam_fit) %>% `rownames<-`(rownames(cases_mat)) %>%
-    `colnames<-`(colnames(cases_mat)) %>%
-    tibble::rownames_to_column("province_en") %>%
-    pivot_longer(-province_en, names_to = "month", values_to = "cases") %>% mutate(series = "fitted")
-) %>% mutate(month = as.Date(month))
+  matrix_to_long(cases_mat, "observed"),
+  matrix_to_long(lam_fit, "fitted")
+)
 
 print(ggplot(diag_long, aes(month, cases, colour = series)) +
   geom_line(linewidth = 0.6) +
@@ -2299,7 +2355,8 @@ print(ggplot(diag_long, aes(month, cases, colour = series)) +
 
 ```{r seirs-export, echo=FALSE, message=FALSE}
 # Save the fitted SEIRS outputs for the direct comparison (python_workflow/compare.R).
-.odir <- file.path("..", "outputs"); dir.create(.odir, showWarnings = FALSE, recursive = TRUE)
+.odir <- file.path("..", "outputs")
+dir.create(.odir, showWarnings = FALSE, recursive = TRUE)
 jsonlite::write_json(list(
   selected = provinces, months = as.character(months),
   nll = fit$value,
@@ -2332,8 +2389,10 @@ mean and interquartile band, as in Part 6).
 
 ```{r seirs-project, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
 # Global (shared) historical scale the SEIRS was fitted with; see seirs-setup.
-tmean <- mean(clim_temp) - 273.15; tsd <- popsd(clim_temp)   # historical mean in °C (CMIP tas is °C); SD is offset-invariant
-rmean <- mean(clim_rain); rsd <- popsd(clim_rain)            # m/month
+tmean <- mean(clim_temp)
+tsd <- popsd(clim_temp)   # Kelvin
+rmean <- mean(clim_rain)
+rsd <- popsd(clim_rain)   # m/month
 
 # Project the fitted SEIRS under one climate model's future climate, continuing from the
 # disease state at the end of the historical fit and projecting future months only (as the
@@ -2351,7 +2410,8 @@ seirs_project_one <- function(tas_pm, pr_pm, dates) {
 # scenario -> province x future-month x model of projected reported cases
 # (exclude climate models that produced unstable future estimates)
 seirs_project_scenario <- function(scenario) {
-  tas <- cmip_tas[[scenario]]; pr <- cmip_pr[[scenario]]
+  tas <- cmip_tas[[scenario]]
+  pr <- cmip_pr[[scenario]]
   lst <- lapply(seq_len(dim(tas$arr)[3]),
                 function(m) seirs_project_one(tas$arr[, , m], pr$arr[, , m], tas$dates))
   arr  <- simplify2array(lst)
@@ -2417,7 +2477,9 @@ decade.The map reuses the helpers from Part 6.
 seirs_consensus <- bind_rows(
   consensus_df(seirs_arr[["SSP1-2.6"]], seirs_dates, "SSP1-2.6"),
   consensus_df(seirs_arr[["SSP5-8.5"]], seirs_dates, "SSP5-8.5"))
-seirs_consensus_sf <- merge(shape_file[, "ADM1_EN"], seirs_consensus, by = "ADM1_EN")
+seirs_consensus_sf <- shape_file |>
+  select(ADM1_EN) |>
+  left_join(seirs_consensus, by = "ADM1_EN")
 
 print(ggplot(seirs_consensus_sf) +
   geom_sf(data = shape_file, fill = "grey95", colour = "grey80", linewidth = 0.2) +
