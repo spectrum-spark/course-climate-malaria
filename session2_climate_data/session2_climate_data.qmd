@@ -8,7 +8,7 @@ contributors:
   - "Dr Vassili Kitsios"
   - "Prof. Roslyn Hickson"
   - "Dr Michael Lydeamore"
-  - "Claude (Anthropic) did the translation of the existing Python workflow to R Quarto; all content to be checked by the course team"
+  - "Claude (Anthropic) did the porting of the existing Python workflow to R Quarto; all content checked by the course team"
 ---
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE}

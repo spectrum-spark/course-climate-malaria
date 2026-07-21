@@ -8,7 +8,7 @@ contributors:
   - "Dr Vassili Kitsios"
   - "Prof. Roslyn Hickson"
   - "Dr Michael Lydeamore"
-  - "Claude (Anthropic), assisted with drafting these session materials; to be checked by the course team"
+  - "Claude (Anthropic), assisted with drafting these session materials; all checked by the course team"
 ---
 
 ```{r setup, echo=FALSE, warning=FALSE, message=FALSE}
