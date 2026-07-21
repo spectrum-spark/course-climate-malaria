@@ -1,6 +1,6 @@
 ---
 title: "Climate science primer: Physics, reanalysis, CMIP, emulators & risk assessments"
-subtitle: "SPARKLE Session 2 on climate data in infectious disease modelling"
+subtitle: "SPARKLE Session 1 on climate data in infectious disease modelling"
 format:
   training-html: default
 presenter: "Dr Vassili Kitsios"
@@ -34,14 +34,14 @@ Session 2 then uses hands-on. It covers, at a high level:
 
 The presentation slides are provided as a PDF:
 
-[📄 Climate science primer: slides (PDF)](../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf){target="_blank"}
+[📄 Climate science primer: slides (PDF)](202607123_Kitsios_SPARKLE_climate_science_primer.pdf){target="_blank"}
 
 ```{=html}
 <p></p>
-<iframe src="../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf"
+<iframe src="202607123_Kitsios_SPARKLE_climate_science_primer.pdf"
         width="100%" height="700px" style="border:1px solid #ccc;">
   Your browser does not display embedded PDFs.
-  <a href="../data/20260511_Kitsios_SPARKLE_EMCR-climate_science_primer.pdf">Download the slides</a>.
+  <a href="202607123_Kitsios_SPARKLE_climate_science_primer.pdf">Download the slides</a>.
 </iframe>
 ```
 
