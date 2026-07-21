@@ -171,6 +171,26 @@ Reading that question tells us:
 - **future climate** for the same region, to *project* that relationship 
   forward.
 
+---
+
+# **Part 1:** Obtaining the data
+
+::: speaker-note
+This part is about *where the data come from* and *why each source was chosen*. 
+:::
+
+The workflow draws on four data sources. Three are used directly in the 
+analysis; the fourth (mosquito occurrence) motivates the approach but is not 
+currently used. The table below is the quick reference; each source, and why it 
+was chosen, is expanded underneath.
+
+| # | Data | What it is / role | Why this source | Source |
+|---|--------|-------------------|-----------------|-------------|
+| 1 | Malaria cases | national surveillance line list (the outcome) | authoritative, national, open, right resolution | [Thai DDC](https://malaria-api.ddc-malaria.org/study/2year/calendar){target="_blank"} |
+| 2 | Spatial region boundaries | province (ADM1) polygons; aggregate grid to province | official ADM1; names align with the case data | [Open Dev Mekong](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"} |
+| 3 | ERA5 reanalysis | gap-free past climate, used to *learn* | state of the art, ~0.25°, complete coverage, open | [Copernicus CDS](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"} |
+| 4 | CMIP6 projections | multi-model future climate, used to *project* | latest coordinated ensemble; scenarios bracket futures | [Copernicus CDS](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"} |
+
 This list is the data we found available, not the initial list assembled. 
 
 **0.1 What data do you think is missing from this list, and why?**
@@ -192,26 +212,6 @@ variables, and projecting those forward and linking to malaria incidence via a
 transmission model tracking humans and vectors. But we couldn't find abundance 
 data in Thailand at the same time period as the malaria incidence data.
 :::
-
----
-
-# **Part 1:** Obtaining the data
-
-::: speaker-note
-This part is about *where the data come from* and *why each source was chosen*. 
-:::
-
-The workflow draws on four data sources. Three are used directly in the 
-analysis; the fourth (mosquito occurrence) motivates the approach but is not 
-currently used. The table below is the quick reference; each source, and why it 
-was chosen, is expanded underneath.
-
-| # | Data | What it is / role | Why this source | Source |
-|---|--------|-------------------|-----------------|-------------|
-| 1 | Malaria cases | national surveillance line list (the outcome) | authoritative, national, open, right resolution | [Thai DDC](https://malaria-api.ddc-malaria.org/study/2year/calendar){target="_blank"} |
-| 2 | Spatial region boundaries | province (ADM1) polygons; aggregate grid to province | official ADM1; names align with the case data | [Open Dev Mekong](https://data.opendevelopmentmekong.net/dataset/thailand-provincial-boundaries){target="_blank"} |
-| 3 | ERA5 reanalysis | gap-free past climate, used to *learn* | state of the art, ~0.25°, complete coverage, open | [Copernicus CDS](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels?tab=download){target="_blank"} |
-| 4 | CMIP6 projections | multi-model future climate, used to *project* | latest coordinated ensemble; scenarios bracket futures | [Copernicus CDS](https://cds.climate.copernicus.eu/datasets/projections-cmip6?tab=download){target="_blank"} |
 
 ::: {.callout-tip}
 Reanalysis (ERA5) is used to *learn* the relationship between climate and malaria
