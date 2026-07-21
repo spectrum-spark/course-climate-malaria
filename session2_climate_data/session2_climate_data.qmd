@@ -2389,10 +2389,10 @@ mean and interquartile band, as in Part 6).
 
 ```{r seirs-project, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
 # Global (shared) historical scale the SEIRS was fitted with; see seirs-setup.
-tmean <- mean(clim_temp)
-tsd <- popsd(clim_temp)   # Kelvin
-rmean <- mean(clim_rain)
-rsd <- popsd(clim_rain)   # m/month
+tmean <- mean(clim_temp) - 273.15   # historical mean in °C (CMIP tas is °C, as in Part 6); SD is offset-invariant
+tsd <- popsd(clim_temp)
+rmean <- mean(clim_rain)            # m/month (CMIP pr already converted to m/month in Part 4)
+rsd <- popsd(clim_rain)
 
 # Project the fitted SEIRS under one climate model's future climate, continuing from the
 # disease state at the end of the historical fit and projecting future months only (as the
@@ -2407,20 +2407,21 @@ seirs_project_one <- function(tas_pm, pr_pm, dates) {
                                init_state = fit_end_state)   # seed from the fit's end state; no burn-in
 }
 
-# scenario -> province x future-month x model of projected reported cases
-# (exclude climate models that produced unstable future estimates)
+# scenario -> province x future-month x model of projected reported cases (no dropping yet)
 seirs_project_scenario <- function(scenario) {
   tas <- cmip_tas[[scenario]]
   pr <- cmip_pr[[scenario]]
-  lst <- lapply(seq_len(dim(tas$arr)[3]),
-                function(m) seirs_project_one(tas$arr[, , m], pr$arr[, , m], tas$dates))
-  arr  <- simplify2array(lst)
-  keep <- apply(arr, 3, function(x) all(is.finite(x)))
-  arr[, , keep, drop = FALSE]
+  simplify2array(lapply(seq_len(dim(tas$arr)[3]),
+                        function(m) seirs_project_one(tas$arr[, , m], pr$arr[, , m], tas$dates)))
 }
 
-seirs_arr   <- list("SSP1-2.6" = seirs_project_scenario("SSP1-2.6"),
-                    "SSP5-8.5" = seirs_project_scenario("SSP5-8.5"))
+seirs_raw <- list("SSP1-2.6" = seirs_project_scenario("SSP1-2.6"),
+                  "SSP5-8.5" = seirs_project_scenario("SSP5-8.5"))
+# Drop a model if it is unstable in *either* scenario (matches the notebook), so both
+# scenarios carry the same model set. cmip_tas/cmip_pr share model order across scenarios.
+keep <- apply(seirs_raw[["SSP1-2.6"]], 3, function(x) all(is.finite(x))) &
+        apply(seirs_raw[["SSP5-8.5"]], 3, function(x) all(is.finite(x)))
+seirs_arr <- lapply(seirs_raw, function(a) a[, , keep, drop = FALSE])
 seirs_dates <- { d <- cmip_tas[[1]]$dates; d[d > hist_end] }   # future months only
 
 # Projected annual cases per province: ensemble mean and interquartile band (reuses annual_proj).
