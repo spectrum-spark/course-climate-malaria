@@ -86,19 +86,13 @@ Two distinctions are worth making explicit:
   sensitivity analysis, not a headline projection.
 
 ::: {.callout-note}
-## Two reporting principles to carry from Session 2
-**Prefer agreement over a single number.** A multi-model ensemble gives a *spread*,
-not a forecast. Reporting *where the climate models agree on the direction of change*
-is more defensible than a single ensemble-mean line, which can imply false precision
-when models actually disagree. This is the model-consensus idea from Session 2, Part 6,
-and the approach we used in our own climate-risk work
-([Sexton et al. 2026](https://doi.org/10.1016/j.ecoinf.2026.103899){target="_blank"}).
+## Remember: Climate is only one (potential) driver 
 
-**Climate is only one driver.** Even a perfect climate-to-disease relationship
-captures one component of risk. Vector control, land use, human movement, immunity and
-health-system change all matter and are usually held fixed in a climate projection, so
-such a projection answers "how does the climate signal propagate", not "how many cases
-will there be".
+Even a perfect climate-to-disease relationship captures one component of risk. 
+Vector control, land use, human movement, immunity and health-system change all 
+matter and are usually held fixed in a climate projection, so such a projection 
+answers "how does the climate signal propagate", not "how many cases will there 
+be".
 :::
 
 # Breakout groups: planning your own work
