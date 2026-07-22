@@ -1,0 +1,77 @@
+name: Copy to training site
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  copy-directory:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          path: source
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: renv
+          working-directory: source
+
+      - name: Install spatial system libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gdal-bin \
+            libgdal-dev \
+            libgeos-dev \
+            libglpk-dev \
+            libproj-dev \
+            libsqlite3-dev \
+            libtbb-dev \
+            libudunits2-dev \
+            libxml2-dev \
+            proj-bin \
+            proj-data \
+            libabsl-dev \
+            libfontconfig1-dev \
+            libfreetype6-dev \
+            pandoc
+
+      - name: Restore R packages
+        uses: r-lib/actions/setup-renv@v2
+        with:
+          working-directory: source
+
+      - name: Render site
+        working-directory: source
+        run: quarto render
+
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          repository: spectrum-spark/courses
+          path: target-repo
+          token: ${{ secrets.PERSONAL_TOKEN }}
+
+      - name: Copy rendered site
+        run: |
+          mkdir -p target-repo/courses/modelling-heterogeneities
+          rsync -av --delete source/_site/ target-repo/courses/modelling-heterogeneities/
+
+      - name: Commit & push changes
+        working-directory: target-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Sync rendered course site" || echo "No changes to commit"
+          git push

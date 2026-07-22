@@ -49,3 +49,5 @@ session2_climate_data/area_weight_diagram.svg
 skills-lock.json
 .claude/
 agent/
+
+.env.local
