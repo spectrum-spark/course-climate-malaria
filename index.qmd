@@ -29,11 +29,3 @@ under future scenarios).
 discussion on what participants could and should be working on with climate data
 in their own contexts. A mechanistic climate-forced transmission model is included
 as an optional, more advanced practical.
-
-::: {.callout-note}
-## Status of these materials
-This is an initial R port of a Python analysis workflow that is still under active
-development. Session 2 is the main practical and is built to be updated when the
-final analysis pipeline is ready. Sections that depend on the final pipeline are
-flagged with **TODO** notes for facilitators.
-:::
