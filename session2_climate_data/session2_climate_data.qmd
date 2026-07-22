@@ -5,6 +5,8 @@ format:
   training-html:
     output-file: index.html
 presenter: "Michael & Roslyn"
+execute:
+  freeze: auto
 contributors:
   - "Dr Vassili Kitsios"
   - "Prof. Roslyn Hickson"
@@ -406,6 +408,16 @@ participants run it and *consider* the province panels (question 2.2) before
 moving on.
 :::
 
+## Project setup
+
+Before we get started, we should set up a _project_ to conduct our analysis in. Exactly how you do this is up to you, but in RStudio, you can go to File > New Project.
+
+Inside your project, you will want to create a folder called `data` and put the data that you have pre-downloaded in there.
+
+::: {.callout-tip}
+This is also a great time to set up your project with version control! GitHub is available for you, and all of the files can go straight on there.
+:::
+
 We start from the surveillance line list: one row per blood draw, with a date,
 province, district, and result. We read it, parse the dates, and aggregate to
 monthly counts.
@@ -419,6 +431,7 @@ library(lubridate)
 library(ggplot2)
 library(patchwork)
 library(here)
+library(broom)
 
 # Locate the data
 data_dir <- here::here("data")
@@ -1438,173 +1451,113 @@ here applied to the month-to-month *change* in infection count. It is deliberate
 simplest model that works, one shared set of coefficients for the whole country, built
 up in a few steps below.
 
-First, line up the malaria counts and the climate on the same province-by-month grid.
+We will be fitting a linear model with non-linear predictors. The outcome variable is the _change_ in malaria counts, and the predictors are temperature and rainfall, and the squares.
 
-```{r part5-matrices, echo=TRUE, eval=TRUE}
-provinces <- selected_provinces
-months <- clim_long |>
-  distinct(month) |>
-  arrange(month) |>
-  pull(month)
+::: {.callout-tip}
+We use the squares to help capture the non-linear change in cases associated with the change in malaria cases. Fitting these models is part science and part art, and with practice you learn these tricks.
+:::
 
-# Case matrix: provinces x months, zero-filled where no cases were reported
-cases_mat <- counts_prov_month |>
-  filter(province_en %in% provinces) |>
-  complete(province_en = provinces, month = months, fill = list(Count = 0)) |>
-  filter(month %in% months) |>
-  arrange(province_en, month) |>
-  pivot_wider(names_from = month, values_from = Count) |>
-  tibble::column_to_rownames("province_en") |>
-  as.matrix()
-cases_mat <- cases_mat[provinces, , drop = FALSE]
+```{r make-data, echo=TRUE, eval=TRUE}
 
-# Climate matrices on the same grid
-mat_from_long <- function(var) {
-  mat <- clim_long |>
-    select(province_en, month, all_of(var)) |>
-    pivot_wider(names_from = month, values_from = all_of(var)) |>
-    tibble::column_to_rownames("province_en") |>
-    as.matrix()
-  mat[provinces, , drop = FALSE]
-}
-clim_temp <- mat_from_long("temp_k")   # Kelvin (offset irrelevant once standardised)
-clim_rain <- mat_from_long("rain_m")
-
-cat("cases:", nrow(cases_mat), "provinces x", ncol(cases_mat), "months;",
-    "total cases =", sum(cases_mat), "\n")
+model_data <- clim_long |>
+  filter(province_en %in% selected_provinces) |> # <1>
+  select(province_en, month, temp_k, rain_m) |>
+  left_join( # <2>
+    counts_prov_month |>
+      select(province_en, month, Count),
+    by = c("province_en", "month")
+  ) |>
+  mutate(Count = coalesce(Count, 0)) |> # <3>
+  group_by(province_en) |>
+  arrange(month, .by_group = TRUE) |>
+  mutate(
+    temp = as.numeric(scale(temp_k)), # <4>
+    rain = as.numeric(scale(rain_m)), 
+    case_change = c(NA_real_, diff(Count)), # <5>
+    change = c(NA_real_, as.numeric(scale(diff(Count))))
+  ) |>
+  ungroup()
 ```
 
-Panel methods cannot account for trends, , as such we must first remove the 
-trend by working with the first *difference*, and then *standardise* by the mean 
-and standard deviation of the data in time per province.
+1. Restrict to only provinces in our study region.
+2. Join the provinces onto the case data.
+3. Use the first value for the month, filling with zeroes if it's missing.
+4. Normalise the data so that it is always on the same scale
+5. `diff()` has one fewer value, so prepend NA for the first month. We use the change to allow for numbers to be positive and negative.
 
-```{r part5-standardise, echo=TRUE, eval=TRUE}
-# SD (divide by n, like NumPy's np.std), not R's sd() (n-1)
-popsd <- function(x) sqrt(mean((x - mean(x))^2))
+The linear model is fit using the usual R syntax:
+```{r fit-lm, echo=TRUE}
 
-# Response: standardised first difference of cases, per province
-cases_fd <- cases_mat[, -1] - cases_mat[, -ncol(cases_mat)]
-fd_mean  <- rowMeans(cases_fd)
-fd_sd    <- apply(cases_fd, 1, popsd)
-z_cases_fd <- (cases_fd - fd_mean) / fd_sd
-
-# Predictors: standardised temperature and rainfall, per province
-z_temp <- (clim_temp - rowMeans(clim_temp)) / apply(clim_temp, 1, popsd)
-z_rain <- (clim_rain - rowMeans(clim_rain)) / apply(clim_rain, 1, popsd)
+climate_lm <- lm(
+  change ~ temp + I(temp^2) + rain + I(rain^2),
+  data = model_data
+)
 ```
 
-Vector `Y` is the standardised first difference of the counts, flattened across 
-all provinces and months into one long vector. 
+and to construct the fitted values, we make use of `broom::augment` which makes us a nicely formatted table.
 
-Matrix `X` has one row per province-month, and columns for standardised 
-temperature, temperature squared, rainfall, and rainfall squared. The squared 
-terms are included to allow for potential nonlinear dependencies of the climate 
-upon the infection rates.
+```{r make-predictions, echo=TRUE}
+fitted_data <- broom::augment(
+  climate_lm,
+  newdata = model_data
+) |>
+  group_by(province_en) |>
+  arrange(month, .by_group = TRUE) |>
+  mutate(
+    fitted_change =
+      .fitted * sd(case_change, na.rm = TRUE) +
+      mean(case_change, na.rm = TRUE), # <1>
 
-```{r part5-build, echo=TRUE, eval=TRUE}
-# Flatten province x month into one vector; X columns: temp, temp^2, rain, rain^2.
-Y  <- as.vector(z_cases_fd)
-zt <- z_temp[, -1]
-zr <- z_rain[, -1]
-X  <- cbind(as.vector(zt), as.vector(zt)^2, as.vector(zr), as.vector(zr)^2)
-colnames(X) <- c("temp", "temp^2", "rain", "rain^2")
+    fitted_change = if_else(
+      is.na(case_change),
+      0,
+      fitted_change
+    ),
+
+    fitted_cases = first(Count) + cumsum(fitted_change) # <2>
+  ) |>
+  ungroup()
 ```
 
-We then solve `Y =  X B` for the coefficients `B` using standard ordinary least 
-squares on the pooled data. Although one could in principle use more 
-sophisticated elaborate methods (e.g. ridge or lasso regression).
+1. Project back to the original scale
+2. Instead of change, we need to now compute absolute case count
 
-```{r part5-fit, echo=TRUE, eval=TRUE}
-# Centre; subtract away means of matrices
-Y_mean <- mean(Y)
-Y_prime <- Y - Y_mean
-X_mean <- colMeans(X)
-X_prime <- sweep(X, 2, X_mean)
 
-# solve ordinary least squares problem
-XtX = t(X_prime) %*% X_prime  #  XᵀX
-XtY = t(X_prime) %*% Y_prime  # XᵀY
-B   <- solve(XtX, XtY) # solves the linear system A B = C for B, with A = XᵀX and C = XᵀY. So it returns B = (XᵀX)⁻¹ XᵀY
-# which is the closed-form OLS estimate, the coefficients that minimise the squared error ‖X B − Y‖²
-print(round(setNames(as.vector(B), colnames(X)), 3))
-```
-
-We then evaluate predictions of the *change* in infection cases using this 
-regression model (the fitted `B`), reshape the data to be a matrix per 
-province and per month, and then finally apply a cummulative sum to return 
-infection counts (as opposed to changes in infection counts).
-
-Because we model the first difference and rebuild the level by that cumulative 
-sum, this is an **ARIMA-style** model, an autoregressive model with exogenous 
-inputs (ARX), temperature and rainfall being the exogenous drivers (hence 
-`arx_fit`).
-
-```{r part5-reconstruct, echo=TRUE, eval=TRUE}
-# Predict the change 
-Y_hat <- as.vector(X_prime %*% B) + Y_mean
-
-# reshape to province x month
-z_hat <- matrix(Y_hat, nrow = nrow(z_cases_fd))
-
-#  Rescale first differences and apply cummulative sum to get back to counts
-fitted_cases <- cases_mat * 0
-for (i in seq_len(nrow(cases_mat))) {
-  fitted_cases[i, 1]  <- cases_mat[i, 1]
-  fitted_cases[i, -1] <- fitted_cases[i, 1] +
-    cumsum(z_hat[i, ] * fd_sd[i] + fd_mean[i])
-}
-```
-
-```{r verify-export, echo=FALSE, message=FALSE}
-# Save this fit's actual outputs to the shared outputs/ folder, so they can be
-# compared directly against the Python notebook's saved outputs (see
-# python_workflow/compare.R). Instrumentation only: it exports the arrays already
-# computed above, it does not recompute anything.
-.odir <- file.path("..", "outputs")
-dir.create(.odir, showWarnings = FALSE, recursive = TRUE)
-jsonlite::write_json(list(
-  selected   = provinces,
-  months     = as.character(months),
-  cases_mat  = cases_mat,
-  clim_temp  = clim_temp,
-  clim_rain  = clim_rain,
-  panel_beta = as.vector(B),
-  arx_fit    = fitted_cases
-), file.path(.odir, "r_panel.json"), matrix = "rowmajor", digits = NA)
-```
-
-Finally, we visualise the model estimates (red line) as compared to the actual 
-data (black line).
+Finally, we visualise the model estimates (red line) as compared to the actual data (black line).
 
 This is perhaps the most basic model one can develop, and is design to 
 illustrate the logic and integration of the climate data. It uses one set of 
 coefficients to represent the behaviour across all provinces.
 
 ```{r part5-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-matrix_to_long <- function(x, series_name) {
-  dimnames(x) <- dimnames(cases_mat)
-  as.data.frame(x) |>
-    tibble::rownames_to_column("province_en") |>
-    pivot_longer(-province_en, names_to = "month", values_to = "cases") |>
-    mutate(month = as.Date(month), series = series_name)
-}
 
-fit_long <- bind_rows(
-  matrix_to_long(cases_mat, "observed"),
-  matrix_to_long(fitted_cases, "fitted")
-)
-
-print(ggplot(fit_long, aes(month, cases, colour = series)) +
+fitted_data |>
+  select(
+    province_en,
+    month,
+    observed = Count,
+    fitted = fitted_cases
+  ) |>
+  pivot_longer(
+    c(observed, fitted),
+    names_to = "series",
+    values_to = "cases"
+  ) |>
+  ggplot(aes(month, cases, colour = series)) +
   geom_line(linewidth = 0.6) +
   facet_wrap(~ province_en, scales = "free_y") +
-  scale_colour_manual(values = c(observed = "black", fitted = "red")) +
-  labs(x = "date", y = "monthly cases",
-       title = "Observed vs panel-fitted monthly cases") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
+  scale_colour_manual(
+    values = c(observed = "black", fitted = "red")
+  ) +
+  labs(
+    x = "Date",
+    y = "Monthly cases",
+    title = "Observed versus fitted monthly malaria cases"
+  ) +
+  theme_bw()
 ```
 
-The fitted `B` coefficients define the climate response. In **Part 6** we
+The fitted `climate_lm` coefficients define the climate response. In **Part 6** we
 apply them to the future CMIP6 climate to project malaria infection cases
 forward. The optional SEIRS section at the end of this session fits a
 transmission model to the same climate parameters, an illustration of the
@@ -1658,6 +1611,7 @@ go wrong if we pooled the raw counts across provinces without standardising?**
 ```{=html}
 <textarea cols="127" rows="4"></textarea>
 ```
+
 <p><br></p>
 
 ::: {.callout-tip collapse="true"}
@@ -1777,46 +1731,98 @@ not "how many cases will there be".
 :::
 
 ```{r part6-project, echo=TRUE, eval=TRUE}
-# Historical per-province scaling (in the CMIP arrays' units). Standardising is
-# offset-invariant, so this matches the scaling the model was fitted with in Part 5.
-temp_mean_p <- rowMeans(clim_temp) - 273.15   # clim_temp is Kelvin; CMIP tas is °C
-temp_sd_p   <- apply(clim_temp, 1, popsd)
-rain_mean_p <- rowMeans(clim_rain)
-rain_sd_p   <- apply(clim_rain, 1, popsd)
+hist_end <- max(model_data$month)
 
-last_obs <- cases_mat[, ncol(cases_mat)]      # seed the projection at the last observed month
-hist_end <- max(months)
+# Save the historical scaling and starting value for each province.
+# These are the same quantities used by scale() in Part 5.
+projection_parameters <- model_data |>
+  group_by(province_en) |>
+  arrange(month, .by_group = TRUE) |>
+  summarise(
+    temp_mean = mean(temp_k),
+    temp_sd = sd(temp_k),
+    rain_mean = mean(rain_m),
+    rain_sd = sd(rain_m),
+    change_mean = mean(case_change, na.rm = TRUE),
+    change_sd = sd(case_change, na.rm = TRUE),
+    last_count = last(Count),
+    .groups = "drop"
+  )
 
-# Apply the fitted ARX model to one climate model's future climate, rebuild counts.
-project_one <- function(tas_pm, pr_pm, dates) {
-  zt <- (tas_pm - temp_mean_p) / temp_sd_p    # province x month (vectors recycle per row)
-  zr <- (pr_pm  - rain_mean_p) / rain_sd_p
-  yhat <- (zt   - X_mean[1]) * B[1] +      # predicted standardised first-difference
-          (zt^2 - X_mean[2]) * B[2] +
-          (zr   - X_mean[3]) * B[3] +
-          (zr^2 - X_mean[4]) * B[4] + Y_mean
-  dcases <- yhat * fd_sd + fd_mean            # back to case-change units, per province
-  fut <- which(dates > hist_end)             # project future months only
-  proj <- last_obs + t(apply(dcases[, fut, drop = FALSE], 1, cumsum))
-  list(proj = proj, dates = dates[fut])
+# Project cases for one climate model under one scenario
+project_one <- function(tas, rain, dates, scenario, climate_model) {
+  future <- dates > hist_end
+
+  # CMIP arrays are province x month.
+  # CMIP temperature is °C, whereas historical temp_k is Kelvin.
+  future_data <- tibble(
+    province_en = rep(
+      selected_provinces,
+      times = sum(future)
+    ),
+    month = rep(
+      dates[future],
+      each = length(selected_provinces)
+    ),
+    temp_k = as.vector(tas[, future, drop = FALSE]) + 273.15, # <1>
+    rain_m = as.vector(rain[, future, drop = FALSE])
+  ) |>
+    left_join(
+      projection_parameters,
+      by = "province_en"
+    ) |>
+    mutate(
+      # Apply the historical scaling from Part 5
+      temp = (temp_k - temp_mean) / temp_sd,
+      rain = (rain_m - rain_mean) / rain_sd
+    )
+
+  broom::augment(
+    climate_lm,
+    newdata = future_data
+  ) |>
+    group_by(province_en) |>
+    arrange(month, .by_group = TRUE) |>
+    mutate(
+      # Undo the historical case-change scaling
+      projected_change =
+        .fitted * change_sd + change_mean,
+
+      # Continue from the final observed count
+      projected_cases =
+        last_count + cumsum(projected_change),
+
+      scenario = scenario,
+      climate_model = climate_model
+    ) |>
+    ungroup()
 }
 
-# scenario -> array (province x future-month x model), dropping unstable models
+# Run every climate model under both scenarios
 project_scenario <- function(scenario) {
+
   tas <- cmip_tas[[scenario]]
-  pr <- cmip_pr[[scenario]]
-  nm  <- dim(tas$arr)[3]
-  lst <- lapply(seq_len(nm), function(m)
-    project_one(tas$arr[, , m], pr$arr[, , m], tas$dates)$proj)
-  arr  <- simplify2array(lst)                 # province x month x model
-  keep <- apply(arr, 3, function(x) all(is.finite(x)))
-  arr[, , keep, drop = FALSE]
+  rain <- cmip_pr[[scenario]]
+  n_models <- dim(tas$arr)[3]
+
+  bind_rows(lapply(seq_len(n_models), function(m) {
+    project_one(
+      tas = tas$arr[, , m],
+      rain = rain$arr[, , m],
+      dates = tas$dates,
+      scenario = scenario,
+      climate_model = as.character(common_models[m])
+    )
+  }))
 }
 
-fut_dates <- project_one(cmip_tas[[1]]$arr[, , 1], cmip_pr[[1]]$arr[, , 1],
-                         cmip_tas[[1]]$dates)$dates
-proj_arr  <- list("SSP1-2.6" = project_scenario("SSP1-2.6"),
-                  "SSP5-8.5" = project_scenario("SSP5-8.5"))
+projection_data <- bind_rows(
+  project_scenario("SSP1-2.6"),
+  project_scenario("SSP5-8.5")
+) |>
+  group_by(scenario, climate_model) |>
+  filter(all(is.finite(projected_cases))) |>
+  ungroup()
 ```
 
 **6.1 The projection standardises the future climate using the *historical* mean and
@@ -1843,60 +1849,79 @@ Aggregate the projected months to annual totals per province, and plot the ensem
 mean and interquartile band for each scenario.
 
 ```{r part6-plot, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-# Turn one scenario's projection (province x month x model) into a per-province,
-# per-year summary across models (mean and interquartile band), ready for ggplot.
-annual_proj <- function(arr, dates, scenario) {
-  yr <- lubridate::year(dates)                             # the calendar year of each month
-  years <- sort(unique(yr))
-  years <- years[vapply(years, function(y) sum(yr == y) == 12, logical(1))]  # complete (12-month) years only
-  # For each year, sum that year's months -> a province x model matrix (annual totals).
-  # sapply stacks those matrices as columns, giving a (province*model) x year matrix.
-  ap <- sapply(years, function(y)
-    apply(arr[, yr == y, , drop = FALSE], c(1, 3), sum))
-  # Fold that flat matrix back into a 3-D array. R fills column-major, so the fastest-
-  # varying index (province) comes first, then model, then year.
-  ap <- array(ap, dim = c(length(provinces), dim(arr)[3], length(years)))  # prov x model x year
-  ap <- aperm(ap, c(1, 3, 2))                              # reorder to prov x year x model
-  # Collapse across models: mean and the 25th/75th percentiles for each province-year.
-  # apply(ap, c(1, 2), .) keeps province & year, summarising over the model dimension;
-  # as.vector unrolls it province-fastest, matching the rep() pattern below.
-  tibble::tibble(
-    province_en = rep(provinces, times = length(years)),  # province cycles fastest
-    year = rep(years, each = length(provinces)),          # year repeats per province block
-    scenario = scenario,
-    mean = as.vector(apply(ap, c(1, 2), mean)),           # ensemble mean line
-    q25  = as.vector(apply(ap, c(1, 2), quantile, 0.25)), # lower edge of the band
-    q75  = as.vector(apply(ap, c(1, 2), quantile, 0.75))  # upper edge of the band
+
+# Annual projected totals for every climate model
+annual_by_model <- projection_data |>
+  mutate(year = lubridate::year(month)) |>
+  group_by(
+    province_en,
+    scenario,
+    climate_model,
+    year
+  ) |>
+  filter(n() == 12) |>
+  summarise(
+    annual_cases = sum(projected_cases),
+    .groups = "drop"
   )
-}
 
-# One tidy data frame with both scenarios stacked.
-proj_annual <- bind_rows(
-  annual_proj(proj_arr[["SSP1-2.6"]], fut_dates, "SSP1-2.6"),
-  annual_proj(proj_arr[["SSP5-8.5"]], fut_dates, "SSP5-8.5")
-)
+# Summarise across climate models
+proj_annual <- annual_by_model |>
+  group_by(province_en, scenario, year) |>
+  summarise(
+    mean = mean(annual_cases),
+    q25 = quantile(annual_cases, 0.25),
+    q75 = quantile(annual_cases, 0.75),
+    .groups = "drop"
+  )
 
-# Historical average annual reported cases per province (mean monthly count x 12),
-# a fixed reference line to compare the projection against.
-obs_annual <- tibble::tibble(
-  province_en = provinces,
-  avg = rowMeans(cases_mat) * 12
-)
+# Historical reference
+obs_annual <- model_data |>
+  group_by(province_en) |>
+  summarise(
+    avg = mean(Count) * 12,
+    .groups = "drop"
+  )
 
-# One small-multiple per province: the shaded band is the inter-model IQR, the line the mean.
-print(ggplot(proj_annual, aes(year, mean, colour = scenario, fill = scenario)) +
-  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +  # interquartile band
-  geom_line(linewidth = 0.6) +                                          # ensemble mean
+ggplot(
+  proj_annual,
+  aes(year, mean, colour = scenario, fill = scenario)
+) +
+  geom_ribbon(
+    aes(ymin = q25, ymax = q75),
+    alpha = 0.2,
+    colour = NA
+  ) +
+  geom_line(linewidth = 0.6) +
   geom_hline(data = obs_annual, aes(yintercept = avg), inherit.aes = FALSE,
-             linetype = "dashed", colour = "grey40", linewidth = 0.4) + # historical average
-  facet_wrap(~ province_en, scales = "free_y") +   # free y so small-caseload provinces are visible
-  scale_colour_manual(values = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +  # blue vs red
-  scale_fill_manual(values   = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
-  labs(x = "year", y = "projected annual cases",
-       title = "Projected annual cases under CMIP6 (statistical/ARX model)",
-       subtitle = "Ensemble mean (line) and IQR (band); dashed line is the historical average annual cases. See caveat above.") +
+    linetype = "dashed", colour = "grey40", linewidth = 0.4
+  ) +
+  facet_wrap(~ province_en, scales = "free_y") +
+  scale_colour_manual(
+    values = c(
+      "SSP1-2.6" = "#2166ac",
+      "SSP5-8.5" = "#b2182b"
+    )
+  ) +
+  scale_fill_manual(
+    values = c(
+      "SSP1-2.6" = "#2166ac",
+      "SSP5-8.5" = "#b2182b"
+    )
+  ) +
+  labs(
+    x = "Year",
+    y = "Projected annual cases",
+    title = "Projected annual cases under CMIP6",
+    subtitle = paste(
+      "Ensemble mean and interquartile range;",
+      "dashed line is the historical average"
+    )
+  ) +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
+  theme(
+    axis.text.x = element_text(angle = 20, hjust = 1)
+  )
 ```
 
 ::: speaker-note
@@ -1919,8 +1944,13 @@ y-axis hides how far. Comparing the largest projected monthly count to the large
 ever observed makes it concrete:
 
 ```{r part6-sanity, echo=TRUE, eval=TRUE}
-vapply(proj_arr, function(a) max(a, na.rm = TRUE), numeric(1)) # largest projected monthly count, per scenario
-max(cases_mat)                                       # largest observed monthly count
+projection_data |>
+  group_by(scenario) |>
+  summarise(
+    largest_projected_month = max(projected_cases)
+  )
+
+max(model_data$Count)
 ```
 
 The projected numbers are orders of magnitude larger, and far into the century they can
@@ -1965,39 +1995,33 @@ first decade of the projection against the last, per climate model, and map the
 fraction of models projecting an increase.
 
 ```{r part6-consensus, echo=TRUE, eval=TRUE, fig.width=11, fig.height=6}
-# Per-model change in annual cases: first projection decade vs last, per province.
-model_change <- function(arr, dates, n_win = 10) {
-  yr <- lubridate::year(dates)
-  years <- sort(unique(yr))
-  years <- years[vapply(years, function(y) sum(yr == y) == 12, logical(1))]  # complete years only
-  ap <- sapply(years, function(y)
-    apply(arr[, yr == y, , drop = FALSE], c(1, 3), sum))    # province*model collapsed per year
-  ap <- array(ap, dim = c(length(provinces), dim(arr)[3], length(years)))  # prov x model x year
-  early <- rowMeans(ap[, , seq_len(n_win), drop = FALSE], dims = 2)             # prov x model
-  late  <- rowMeans(ap[, , tail(seq_along(years), n_win), drop = FALSE], dims = 2)
-  late - early
-}
+n_window <- 10
 
-# Fraction of models projecting an increase, per province (0 = all decrease, 1 = all increase).
-consensus_df <- function(arr, dates, scenario) {
-  chg <- model_change(arr, dates)
-  tibble::tibble(
-    ADM1_EN = provinces,
-    scenario = scenario,
-    frac_up = rowMeans(chg > 0)
+model_changes <- annual_by_model |>
+  group_by(province_en, scenario, climate_model) |>
+  arrange(year, .by_group = TRUE) |>
+  summarise(
+    change =
+      mean(tail(annual_cases, n_window)) -
+      mean(head(annual_cases, n_window)),
+    .groups = "drop"
   )
-}
 
-consensus <- bind_rows(
-  consensus_df(proj_arr[["SSP1-2.6"]], fut_dates, "SSP1-2.6"),
-  consensus_df(proj_arr[["SSP5-8.5"]], fut_dates, "SSP5-8.5"))
+consensus <- model_changes |>
+  group_by(province_en, scenario) |>
+  summarise(
+    frac_up = mean(change > 0),
+    .groups = "drop"
+  ) |>
+  rename(ADM1_EN = province_en)
 
 # Join to the province polygons and map (grey backdrop = provinces not in the panel).
 consensus_sf <- shape_file |>
   select(ADM1_EN) |>
-  left_join(consensus, by = "ADM1_EN")
+  left_join(consensus, by = "ADM1_EN") |>
+  filter(!is.na(scenario))
 
-print(ggplot(consensus_sf) +
+ggplot(consensus_sf) +
   geom_sf(data = shape_file, fill = "grey95", colour = "grey80", linewidth = 0.2) +
   geom_sf(aes(fill = frac_up), colour = "grey40", linewidth = 0.2) +
   facet_wrap(~ scenario) +
@@ -2011,7 +2035,7 @@ print(ggplot(consensus_sf) +
                         "Read as the agreed direction, not a robust magnitude: the change still inherits the ARX drift.",
                         sep = "\n")) +
   theme_bw() +
-  theme(axis.text = element_blank(), axis.ticks = element_blank()))
+  theme(axis.text = element_blank(), axis.ticks = element_blank())
 ```
 
 **6.4 The trajectory band is the interquartile range across models; the consensus
@@ -2143,11 +2167,35 @@ in Parts 2–3 and 5. The only difference is that it standardises climate **glob
 comparable climate sensitivity.
 
 ```{r seirs-setup, echo=TRUE, eval=TRUE}
-# reuse cases_mat, clim_temp (Kelvin), clim_rain (m), popsd() from Part 5
-ztemp <- (clim_temp - mean(clim_temp)) / popsd(clim_temp)
-zrain <- (clim_rain - mean(clim_rain)) / popsd(clim_rain)
-cat(sprintf("SEIRS inputs: %d provinces x %d months, %.0f total cases\n",
-            nrow(cases_mat), ncol(cases_mat), sum(cases_mat)))
+seirs_provinces <- selected_provinces
+seirs_months <- sort(unique(model_data$month))
+
+# Convert one column of the tidy data to province x month form
+to_seirs_matrix <- function(data, value) {
+  data |>
+    select(province_en, month, all_of(value)) |>
+    pivot_wider(
+      names_from = month,
+      values_from = all_of(value)
+    ) |>
+    arrange(match(province_en, seirs_provinces)) |>
+    tibble::column_to_rownames("province_en") |>
+    as.matrix()
+}
+
+cases_mat <- to_seirs_matrix(model_data, "Count")
+clim_temp <- to_seirs_matrix(model_data, "temp_k")
+clim_rain <- to_seirs_matrix(model_data, "rain_m")
+
+# The SEIRS uses one global climate scale, rather than scaling
+# each province separately as the statistical model does.
+seirs_temp_mean <- mean(clim_temp)
+seirs_temp_sd <- sd(clim_temp)
+seirs_rain_mean <- mean(clim_rain)
+seirs_rain_sd <- sd(clim_rain)
+
+ztemp <- (clim_temp - seirs_temp_mean) / seirs_temp_sd
+zrain <- (clim_rain - seirs_rain_mean) / seirs_rain_sd
 ```
 
 The model is built up in five chunks below, then fitted. 
@@ -2337,35 +2385,72 @@ against the observed monthly counts, province by province.
 ```{r seirs-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
 ss_res <- sum((cases_mat - lam_fit)^2)
 ss_tot <- sum((cases_mat - mean(cases_mat))^2)
-cat(sprintf("pseudo-R2 (vs fitted lambda): %.3f\n", 1 - ss_res / ss_tot))
 
-diag_long <- bind_rows(
-  matrix_to_long(cases_mat, "observed"),
-  matrix_to_long(lam_fit, "fitted")
+cat(sprintf(
+  "pseudo-R2 (vs fitted lambda): %.3f\n",
+  1 - ss_res / ss_tot
+))
+
+matrix_to_tidy <- function(x, series) {
+  tibble(
+    province_en = rep(
+      rownames(x),
+      times = ncol(x)
+    ),
+    month = rep(
+      seirs_months,
+      each = nrow(x)
+    ),
+    cases = as.vector(x),
+    series = series
+  )
+}
+
+seirs_fitted_data <- bind_rows(
+  matrix_to_tidy(cases_mat, "observed"),
+  matrix_to_tidy(lam_fit, "fitted")
 )
 
-print(ggplot(diag_long, aes(month, cases, colour = series)) +
+ggplot(
+  seirs_fitted_data,
+  aes(month, cases, colour = series)
+) +
   geom_line(linewidth = 0.6) +
   facet_wrap(~ province_en, scales = "free_y") +
-  scale_colour_manual(values = c(observed = "black", fitted = "red")) +
-  labs(x = "date", y = "monthly cases",
-       title = "Observed vs SEIRS-fitted monthly cases") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
+  scale_colour_manual(
+    values = c(observed = "black", fitted = "red")
+  ) +
+  labs(
+    x = "Date",
+    y = "Monthly cases",
+    title = "Observed versus SEIRS-fitted monthly cases"
+  ) +
+  theme_bw()
 ```
 
 ```{r seirs-export, echo=FALSE, message=FALSE}
 # Save the fitted SEIRS outputs for the direct comparison (python_workflow/compare.R).
 .odir <- file.path("..", "outputs")
 dir.create(.odir, showWarnings = FALSE, recursive = TRUE)
-jsonlite::write_json(list(
-  selected = provinces, months = as.character(months),
-  nll = fit$value,
-  sigma = p$sigma, gamma = p$gamma, omega = p$omega,
-  b_temp = p$b_temp, b_rain = p$b_rain,
-  beta0 = p$beta0, scale = p$scale,
-  lam_fit = lam_fit
-), file.path(.odir, "r_seirs.json"), matrix = "rowmajor", digits = NA, auto_unbox = TRUE)
+jsonlite::write_json(
+  list(
+    selected = seirs_provinces,
+    months = as.character(seirs_months),
+    nll = fit$value,
+    sigma = p$sigma,
+    gamma = p$gamma,
+    omega = p$omega,
+    b_temp = p$b_temp,
+    b_rain = p$b_rain,
+    beta0 = p$beta0,
+    scale = p$scale,
+    lam_fit = lam_fit
+  ),
+  file.path(.odir, "r_seirs.json"),
+  matrix = "rowmajor",
+  digits = NA,
+  auto_unbox = TRUE
+)
 ```
 
 ::: {.callout-note}
@@ -2389,60 +2474,142 @@ deviation* the model was fitted with. We plot the projected annual cases (ensemb
 mean and interquartile band, as in Part 6).
 
 ```{r seirs-project, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-# Global (shared) historical scale the SEIRS was fitted with; see seirs-setup.
-tmean <- mean(clim_temp) - 273.15   # historical mean in °C (CMIP tas is °C, as in Part 6); SD is offset-invariant
-tsd <- popsd(clim_temp)
-rmean <- mean(clim_rain)            # m/month (CMIP pr already converted to m/month in Part 4)
-rsd <- popsd(clim_rain)
 
-# Project the fitted SEIRS under one climate model's future climate, continuing from the
-# disease state at the end of the historical fit and projecting future months only (as the
-# Part 6 ARX projection continues from the last observed month).
-seirs_project_one <- function(tas_pm, pr_pm, dates) {
-  zt <- (tas_pm - tmean) / tsd                       # both in °C (see tmean above), as the Python does
-  zr <- (pr_pm - rmean) / rsd
-  beta_t <- p$beta0 * exp(p$b_temp * zt + p$b_rain * zr)
-  beta_t <- pmin(pmax(beta_t, 1e-6), 50)             # same clipping as the likelihood
-  fut <- which(dates > hist_end)                     # future months only
-  p$scale * simulate_incidence(beta_t[, fut, drop = FALSE], p$sigma, p$gamma, p$omega,
-                               init_state = fit_end_state)   # seed from the fit's end state; no burn-in
+seirs_project_one <- function(tas, rain, dates) {
+  future <- dates > hist_end
+
+  # CMIP temperature is currently Celsius; historical temperature
+  # used to fit the SEIRS was in Kelvin.
+  future_ztemp <-
+    (tas[, future, drop = FALSE] + 273.15 - seirs_temp_mean) /
+    seirs_temp_sd
+
+  future_zrain <-
+    (rain[, future, drop = FALSE] - seirs_rain_mean) /
+    seirs_rain_sd
+
+  beta_future <- p$beta0 * exp(
+    p$b_temp * future_ztemp +
+      p$b_rain * future_zrain
+  )
+
+  beta_future <- pmin(
+    pmax(beta_future, 1e-6),
+    50
+  )
+
+  p$scale * simulate_incidence(
+    beta_future,
+    p$sigma,
+    p$gamma,
+    p$omega,
+    init_state = fit_end_state
+  )
 }
 
-# scenario -> province x future-month x model of projected reported cases (no dropping yet)
 seirs_project_scenario <- function(scenario) {
   tas <- cmip_tas[[scenario]]
-  pr <- cmip_pr[[scenario]]
-  simplify2array(lapply(seq_len(dim(tas$arr)[3]),
-                        function(m) seirs_project_one(tas$arr[, , m], pr$arr[, , m], tas$dates)))
+  rain <- cmip_pr[[scenario]]
+  future_dates <- tas$dates[tas$dates > hist_end]
+  n_models <- dim(tas$arr)[3]
+
+  bind_rows(lapply(seq_len(n_models), function(m) {
+    projected <- seirs_project_one(
+      tas$arr[, , m],
+      rain$arr[, , m],
+      tas$dates
+    )
+
+    tibble(
+      province_en = rep(
+        seirs_provinces,
+        times = length(future_dates)
+      ),
+      month = rep(
+        future_dates,
+        each = length(seirs_provinces)
+      ),
+      climate_model = as.character(common_models[m]),
+      scenario = scenario,
+      projected_cases = as.vector(projected)
+    )
+  }))
 }
 
-seirs_raw <- list("SSP1-2.6" = seirs_project_scenario("SSP1-2.6"),
-                  "SSP5-8.5" = seirs_project_scenario("SSP5-8.5"))
-# Drop a model if it is unstable in *either* scenario (matches the notebook), so both
-# scenarios carry the same model set. cmip_tas/cmip_pr share model order across scenarios.
-keep <- apply(seirs_raw[["SSP1-2.6"]], 3, function(x) all(is.finite(x))) &
-        apply(seirs_raw[["SSP5-8.5"]], 3, function(x) all(is.finite(x)))
-seirs_arr <- lapply(seirs_raw, function(a) a[, , keep, drop = FALSE])
-seirs_dates <- { d <- cmip_tas[[1]]$dates; d[d > hist_end] }   # future months only
+seirs_projection_data <- bind_rows(
+  seirs_project_scenario("SSP1-2.6"),
+  seirs_project_scenario("SSP5-8.5")
+) |>
+  # Drop a climate model if it is unstable in either scenario
+  group_by(climate_model) |>
+  filter(all(is.finite(projected_cases))) |>
+  ungroup()
 
-# Projected annual cases per province: ensemble mean and interquartile band (reuses annual_proj).
-seirs_annual <- bind_rows(
-  annual_proj(seirs_arr[["SSP1-2.6"]], seirs_dates, "SSP1-2.6"),
-  annual_proj(seirs_arr[["SSP5-8.5"]], seirs_dates, "SSP5-8.5"))
 
-print(ggplot(seirs_annual, aes(year, mean, colour = scenario, fill = scenario)) +
-  geom_ribbon(aes(ymin = q25, ymax = q75), alpha = 0.2, colour = NA) +
+seirs_annual_by_model <- seirs_projection_data |>
+  mutate(year = lubridate::year(month)) |>
+  group_by(
+    province_en,
+    scenario,
+    climate_model,
+    year
+  ) |>
+  filter(n() == 12) |>
+  summarise(
+    annual_cases = sum(projected_cases),
+    .groups = "drop"
+  )
+
+seirs_annual <- seirs_annual_by_model |>
+  group_by(province_en, scenario, year) |>
+  summarise(
+    mean = mean(annual_cases),
+    q25 = quantile(annual_cases, 0.25),
+    q75 = quantile(annual_cases, 0.75),
+    .groups = "drop"
+  )
+
+ggplot(
+  seirs_annual,
+  aes(year, mean, colour = scenario, fill = scenario)
+) +
+  geom_ribbon(
+    aes(ymin = q25, ymax = q75),
+    alpha = 0.2,
+    colour = NA
+  ) +
   geom_line(linewidth = 0.6) +
-  geom_hline(data = obs_annual, aes(yintercept = avg), inherit.aes = FALSE,
-             linetype = "dashed", colour = "grey40", linewidth = 0.4) + # historical average (from Part 6)
+  geom_hline(
+    data = obs_annual,
+    aes(yintercept = avg),
+    inherit.aes = FALSE,
+    linetype = "dashed",
+    colour = "grey40",
+    linewidth = 0.4
+  ) +
   facet_wrap(~ province_en, scales = "free_y") +
-  scale_colour_manual(values = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
-  scale_fill_manual(values   = c("SSP1-2.6" = "#2166ac", "SSP5-8.5" = "#b2182b")) +
-  labs(x = "year", y = "projected annual cases",
-       title = "Projected annual cases under CMIP6 (SEIRS model)",
-       subtitle = "Ensemble mean (line) and IQR (band); dashed line is the historical average annual cases.") +
-  theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
+  scale_colour_manual(
+    values = c(
+      "SSP1-2.6" = "#2166ac",
+      "SSP5-8.5" = "#b2182b"
+    )
+  ) +
+  scale_fill_manual(
+    values = c(
+      "SSP1-2.6" = "#2166ac",
+      "SSP5-8.5" = "#b2182b"
+    )
+  ) +
+  labs(
+    x = "Year",
+    y = "Projected annual cases",
+    title = "Projected annual cases under CMIP6: SEIRS model",
+    subtitle = paste(
+      "Ensemble mean and interquartile range;",
+      "dashed line is the historical average"
+    )
+  ) +
+  theme_bw()
 ```
 
 **7.2 Compare with the statistical projection.** Put these SEIRS trajectories next to the
@@ -2475,15 +2642,29 @@ Now we map the **consensus**: the fraction of models in which a province's
 annual cases change in similar direction and quantity from the first to the last 
 decade.The map reuses the helpers from Part 6.
 ```{r seirs-consensus, echo=TRUE, eval=TRUE, fig.width=11, fig.height=6}
-# Reuse the Part 6 consensus helpers (model_change, consensus_df) on the SEIRS projection.
-seirs_consensus <- bind_rows(
-  consensus_df(seirs_arr[["SSP1-2.6"]], seirs_dates, "SSP1-2.6"),
-  consensus_df(seirs_arr[["SSP5-8.5"]], seirs_dates, "SSP5-8.5"))
+seirs_model_changes <- seirs_annual_by_model |>
+  group_by(province_en, scenario, climate_model) |>
+  arrange(year, .by_group = TRUE) |>
+  summarise(
+    change =
+      mean(tail(annual_cases, n_window)) -
+      mean(head(annual_cases, n_window)),
+    .groups = "drop"
+  )
+
+seirs_consensus <- seirs_model_changes |>
+  group_by(province_en, scenario) |>
+  summarise(
+    frac_up = mean(change > 0),
+    .groups = "drop"
+  ) |>
+  rename(ADM1_EN = province_en)
+
 seirs_consensus_sf <- shape_file |>
   select(ADM1_EN) |>
   left_join(seirs_consensus, by = "ADM1_EN")
 
-print(ggplot(seirs_consensus_sf) +
+ggplot(seirs_consensus_sf) +
   geom_sf(data = shape_file, fill = "grey95", colour = "grey80", linewidth = 0.2) +
   geom_sf(aes(fill = frac_up), colour = "grey40", linewidth = 0.2) +
   facet_wrap(~ scenario) +
@@ -2495,7 +2676,7 @@ print(ggplot(seirs_consensus_sf) +
   labs(title = "SEIRS model consensus on the direction of change in annual cases",
        subtitle = "Fraction of CMIP6 models projecting more cases (last decade vs first). White = no consensus.") +
   theme_bw() +
-  theme(axis.text = element_blank(), axis.ticks = element_blank()))
+  theme(axis.text = element_blank(), axis.ticks = element_blank())
 ```
 
 **7.3 Discussion (model structure): compare this SEIRS consensus map with the
