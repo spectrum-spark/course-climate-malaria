@@ -1,5 +1,10 @@
 library(sf)
 library(terra)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(sf)
+library(tidyr)
 
 # Province (ADM1) boundaries ----------------------------------------------
 shape_file <- st_read(
