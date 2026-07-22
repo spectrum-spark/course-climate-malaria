@@ -393,6 +393,10 @@ The projections are then used to *project* that learned relationship forward.
 
 # **Part 2:** Malaria case data
 
+::: {.callout-important}
+[Download the complete malaria data R script](malaria_data.R){download="malaria_data.R"}
+:::
+
 ::: speaker-note
 This part reads the surveillance line list and aggregates it. The key teaching
 points are: 
@@ -417,6 +421,8 @@ Inside your project, you will want to create a folder called `data` and put the 
 ::: {.callout-tip}
 This is also a great time to set up your project with version control! GitHub is available for you, and all of the files can go straight on there.
 :::
+
+## Surveillance data
 
 We start from the surveillance line list: one row per blood draw, with a date,
 province, district, and result. We read it, parse the dates, and aggregate to
@@ -657,6 +663,10 @@ different climates and malaria regimes, likely washing out the signal.
 ---
 
 # **Part 3:** Environmental variables (reanalysis)
+
+::: {.callout-important}
+[Download the complete spatial data R script](spatial_data.R){download="spatial_data.R"}
+:::
 
 ::: speaker-note
 The concept to focus on here is the *spatial mismatch*: climate comes on a 
@@ -1454,45 +1464,44 @@ up in a few steps below.
 We will be fitting a linear model with non-linear predictors. The outcome variable is the _change_ in malaria counts, and the predictors are temperature and rainfall, and the squares.
 
 ::: {.callout-tip}
-We use the squares to help capture the non-linear change in cases associated with the change in malaria cases. Fitting these models is part science and part art, and with practice you learn these tricks.
+We use the squared terms to help capture the non-linear change in cases associated with the change in malaria cases. Fitting these models is part science and part art, and with practice you learn these tricks.
 :::
 
 ```{r make-data, echo=TRUE, eval=TRUE}
-
 model_data <- clim_long |>
-  filter(province_en %in% selected_provinces) |> # <1>
-  select(province_en, month, temp_k, rain_m) |>
-  left_join( # <2>
-    counts_prov_month |>
-      select(province_en, month, Count),
-    by = c("province_en", "month")
+  left_join(counts_prov_month, by = c("province_en", "month") # <1>
   ) |>
-  mutate(Count = coalesce(Count, 0)) |> # <3>
+  mutate(Count = coalesce(Count, 0)) |> # <2>
   group_by(province_en) |>
   arrange(month, .by_group = TRUE) |>
   mutate(
-    temp = as.numeric(scale(temp_k)), # <4>
+    temp = as.numeric(scale(temp_k)), # <3>
     rain = as.numeric(scale(rain_m)), 
-    case_change = c(NA_real_, diff(Count)), # <5>
-    change = c(NA_real_, as.numeric(scale(diff(Count))))
+    case_change = c(NA_real_, diff(Count)), # <4>
+    change = c(NA_real_, as.numeric(scale(diff(Count)))) # <5>
   ) |>
   ungroup()
 ```
 
-1. Restrict to only provinces in our study region.
-2. Join the provinces onto the case data.
-3. Use the first value for the month, filling with zeroes if it's missing.
-4. Normalise the data so that it is always on the same scale
-5. `diff()` has one fewer value, so prepend NA for the first month. We use the change to allow for numbers to be positive and negative.
+1. Join the provinces onto the case data.
+2. Use the first value for the month, filling with zeroes if it's missing.
+3. Normalise the data so that it is always on the same scale
+4. `diff()` has one fewer value, so prepend NA for the first month. We use the change to allow for numbers to be positive and negative.
+5. Center and scale our data so everything is on the same overall scale
 
 The linear model is fit using the usual R syntax:
 ```{r fit-lm, echo=TRUE}
-
 climate_lm <- lm(
   change ~ temp + I(temp^2) + rain + I(rain^2),
   data = model_data
 )
+
+summary(climate_lm)
 ```
+
+::: {.callout-warning}
+What do you notice about this model fit? Does that align with what you would expect?
+:::
 
 and to construct the fitted values, we make use of `broom::augment` which makes us a nicely formatted table.
 
@@ -1504,16 +1513,8 @@ fitted_data <- broom::augment(
   group_by(province_en) |>
   arrange(month, .by_group = TRUE) |>
   mutate(
-    fitted_change =
-      .fitted * sd(case_change, na.rm = TRUE) +
-      mean(case_change, na.rm = TRUE), # <1>
-
-    fitted_change = if_else(
-      is.na(case_change),
-      0,
-      fitted_change
-    ),
-
+    fitted_change = .fitted * sd(case_change, na.rm = TRUE) + mean(case_change, na.rm = TRUE), # <1>
+    fitted_change = if_else(is.na(case_change), 0, fitted_change),
     fitted_cases = first(Count) + cumsum(fitted_change) # <2>
   ) |>
   ungroup()
@@ -1522,15 +1523,9 @@ fitted_data <- broom::augment(
 1. Project back to the original scale
 2. Instead of change, we need to now compute absolute case count
 
-
 Finally, we visualise the model estimates (red line) as compared to the actual data (black line).
 
-This is perhaps the most basic model one can develop, and is design to 
-illustrate the logic and integration of the climate data. It uses one set of 
-coefficients to represent the behaviour across all provinces.
-
 ```{r part5-diag, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
-
 fitted_data |>
   select(
     province_en,
@@ -1544,18 +1539,21 @@ fitted_data |>
     values_to = "cases"
   ) |>
   ggplot(aes(month, cases, colour = series)) +
-  geom_line(linewidth = 0.6) +
-  facet_wrap(~ province_en, scales = "free_y") +
+  geom_line() +
+  facet_wrap(~province_en, scales = "free_y") +
   scale_colour_manual(
     values = c(observed = "black", fitted = "red")
   ) +
+    scale_x_date(labels = function(x) paste0(substr(format(x, "%b"), 1, 1), format(x, "%y"))) +
   labs(
-    x = "Date",
-    y = "Monthly cases",
+    x = "Date", y = "Monthly cases",
     title = "Observed versus fitted monthly malaria cases"
-  ) +
-  theme_bw()
+  ) + theme_bw()
 ```
+
+This is perhaps the most basic model one can develop, and is design to 
+illustrate the logic and integration of the climate data. It uses one set of 
+coefficients to represent the behaviour across all provinces.
 
 The fitted `climate_lm` coefficients define the climate response. In **Part 6** we
 apply them to the future CMIP6 climate to project malaria infection cases
@@ -1566,7 +1564,7 @@ mechanistic approach.
 ::: {.callout-note}
 ## Principle: collinear predictors are candidate associations, not causes
 Temperature, temperature², rainfall and rainfall² are strongly correlated with one
-another, so the individual `B` coefficients cannot be cleanly attributed to a single
+another, so the individual coefficients cannot be cleanly attributed to a single
 driver: a large coefficient on one term can be offset by another. Treat them as a
 combined climate response that fits the data, not as separate causal effects. In our
 own climate-risk work the same collinearity (high variance-inflation factors) is why
@@ -1730,11 +1728,19 @@ varies only the climate answers "how does the climate signal alone propagate",
 not "how many cases will there be".
 :::
 
-```{r part6-project, echo=TRUE, eval=TRUE}
-hist_end <- max(model_data$month)
+Let's first think about how to project one model, in one scenario.
 
-# Save the historical scaling and starting value for each province.
-# These are the same quantities used by scale() in Part 5.
+Remember, each scenario has multiple models. These models are stored in the third dimension of the model array, which we access using:
+
+```r
+cmip_tas[["scenario"]]$arr
+```
+
+We will need our parameters from the model fit:
+
+```{r part6-parameters, echo=TRUE, eval=TRUE}
+data_end <- max(model_data$month)
+
 projection_parameters <- model_data |>
   group_by(province_en) |>
   arrange(month, .by_group = TRUE) |>
@@ -1748,10 +1754,102 @@ projection_parameters <- model_data |>
     last_count = last(Count),
     .groups = "drop"
   )
+```
 
-# Project cases for one climate model under one scenario
+For simplicity, let's think about one scenario data. We will later extend to more.
+
+
+```{r, echo=TRUE}
+tas <- cmip_tas[["SSP1-2.6"]]
+rain <- cmip_pr[["SSP1-2.6"]]
+n_models <- dim(tas$arr)[3]
+```
+
+Next, let's think about what the data we will project onto should look like. Ideally, we will have a tidy data frame with:
+
+* Province,
+* Month,
+* Temperature and,
+* Rainfall.
+
+We can build that as follows:
+
+```{r}
+is_future_dates <- tas$dates > data_end
+future_data <- tibble(
+  province_en = rep(selected_provinces, times = sum(is_future_dates)),
+  month = rep(tas$dates[is_future_dates], each = length(selected_provinces)),
+  temp_k = as.vector(tas$arr[, is_future_dates, 1]) + 273.15,
+  rain_m = as.vector(rain$arr[, is_future_dates, 1])
+)
+```
+
+We also need to extract the region-specific parameters we fit from the last session. We can do that through a `left_join`:
+
+```{r}
+future_data <- future_data |>
+  left_join(projection_parameters, by = "province_en")
+```
+
+::: {.callout-important}
+## Remember the scaling
+
+Our model in Part 5 operated on a **standardised scale**. We have to remember to _always_ predict on the same scale as what we fit the model on.
+
+:::
+
+Scaling is applied using the _historical scale_:
+
+```{r}
+future_data <- future_data |>
+  mutate(
+    temp = (temp_k - temp_mean) / temp_sd,
+    rain = (rain_m - rain_mean) / rain_sd
+  )
+
+future_data
+```
+
+Now our projection data has everything we need to do prediction! We can use the same method to predict as we did to test our fit, only changing the `newdata` argument.
+
+```{r}
+predictions <- broom::augment(
+  climate_lm,
+  newdata = future_data
+) |>
+  group_by(province_en) |>
+  arrange(month, .by_group = TRUE) |>
+  mutate(
+      projected_change = .fitted * change_sd + change_mean, # <1>
+      projected_cases = last_count + cumsum(projected_change), # <2>
+    ) |>
+    ungroup()
+
+predictions
+```
+
+1. Undo the historical scaling to get back onto the natural scale
+2. Make sure our projection starts from the final data point
+
+We can visualise this one scenario, and one model:
+
+```{r}
+predictions |>
+  mutate(year = year(month)) |>
+  ggplot(aes(x=month)) + 
+    geom_line(aes(y = projected_cases)) +
+    facet_wrap(~province_en, scales="free")
+```
+
+With our process thought through, now we can wrap this up into a function. First, let's put our prediction for a single model (in a single scenario) into a function:
+
+::: {.callout-tip}
+This is identical code to what is above in the separate chunks!
+:::
+
+```{r}
 project_one <- function(tas, rain, dates, scenario, climate_model) {
-  future <- dates > hist_end
+  future <- dates > data_end
 
   # CMIP arrays are province x month.
   # CMIP temperature is °C, whereas historical temp_k is Kelvin.
@@ -1797,6 +1895,10 @@ project_one <- function(tas, rain, dates, scenario, climate_model) {
     ) |>
     ungroup()
 }
+```
+
+Next, let's extend to every model in one scenario:
+```{r part6-project, echo=TRUE, eval=TRUE}
 
 # Run every climate model under both scenarios
 project_scenario <- function(scenario) {
@@ -1805,7 +1907,7 @@ project_scenario <- function(scenario) {
   rain <- cmip_pr[[scenario]]
   n_models <- dim(tas$arr)[3]
 
-  bind_rows(lapply(seq_len(n_models), function(m) {
+  lapply(seq_len(n_models), function(m) {
     project_one(
       tas = tas$arr[, , m],
       rain = rain$arr[, , m],
@@ -1813,9 +1915,13 @@ project_scenario <- function(scenario) {
       scenario = scenario,
       climate_model = as.character(common_models[m])
     )
-  }))
+  }) |> bind_rows()
 }
+```
 
+And finally, we can combine together the two scenarios:
+
+```{r}
 projection_data <- bind_rows(
   project_scenario("SSP1-2.6"),
   project_scenario("SSP5-8.5")
@@ -2262,7 +2368,7 @@ simulate_incidence <- function(beta, sigma, gamma, omega,
       state[5, ] <- 0
     }
   }
-  incidence <- matrix(0, n_prov, n_months)
+  incidence <- matrix(0, n_prov, n_months, dimnames = dimnames(beta))
   for (m in seq_len(n_months)) {
     state[5, ] <- 0
     beta_m <- beta[, m]                                # use this month's beta
@@ -2476,7 +2582,7 @@ mean and interquartile band, as in Part 6).
 ```{r seirs-project, echo=TRUE, eval=TRUE, fig.width=11, fig.height=10}
 
 seirs_project_one <- function(tas, rain, dates) {
-  future <- dates > hist_end
+  future <- dates > data_end
 
   # CMIP temperature is currently Celsius; historical temperature
   # used to fit the SEIRS was in Kelvin.
@@ -2510,7 +2616,7 @@ seirs_project_one <- function(tas, rain, dates) {
 seirs_project_scenario <- function(scenario) {
   tas <- cmip_tas[[scenario]]
   rain <- cmip_pr[[scenario]]
-  future_dates <- tas$dates[tas$dates > hist_end]
+  future_dates <- tas$dates[tas$dates > data_end]
   n_models <- dim(tas$arr)[3]
 
   bind_rows(lapply(seq_len(n_models), function(m) {
@@ -2662,7 +2768,8 @@ seirs_consensus <- seirs_model_changes |>
 
 seirs_consensus_sf <- shape_file |>
   select(ADM1_EN) |>
-  left_join(seirs_consensus, by = "ADM1_EN")
+  left_join(seirs_consensus, by = "ADM1_EN") |>
+  filter(!is.na(scenario))
 
 ggplot(seirs_consensus_sf) +
   geom_sf(data = shape_file, fill = "grey95", colour = "grey80", linewidth = 0.2) +

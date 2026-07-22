@@ -1,6 +1,9 @@
 project:
   title: "Climate data in infectious disease modelling"
   type: website
+  resources:
+    - session2_climate_data/malaria_data.R
+    - session2_climate_data/spatial_data.R
   render:
     - index.qmd
     - session1_climate_primer/index.qmd
