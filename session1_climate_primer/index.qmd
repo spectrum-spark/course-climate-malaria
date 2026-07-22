@@ -2,7 +2,8 @@
 title: "Climate science primer: Physics, reanalysis, CMIP, emulators & risk assessments"
 subtitle: "SPARKLE Session 1 on climate data in infectious disease modelling"
 format:
-  training-html: default
+  training-html:
+    output-file: index.html
 presenter: "Dr Vassili Kitsios"
 contributors:
   - Dr Vassili Kitsios

@@ -2,7 +2,8 @@
 title: "Obtaining, manipulating, and fitting climate data"
 subtitle: "SPARKLE Session 2 on climate data in infectious disease modelling"
 format:
-  training-html: default
+  training-html:
+    output-file: index.html
 presenter: "Michael & Roslyn"
 contributors:
   - "Dr Vassili Kitsios"
