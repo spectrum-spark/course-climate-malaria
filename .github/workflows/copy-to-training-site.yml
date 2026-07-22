@@ -64,8 +64,8 @@ jobs:
 
       - name: Copy rendered site
         run: |
-          mkdir -p target-repo/courses/modelling-heterogeneities
-          rsync -av --delete source/_site/ target-repo/courses/modelling-heterogeneities/
+          mkdir -p target-repo/courses/climate-malaria
+          rsync -av --delete source/_site/ target-repo/courses/climate-malaria
 
       - name: Commit & push changes
         working-directory: target-repo
