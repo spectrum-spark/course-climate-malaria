@@ -31,6 +31,13 @@ Session 2 then uses hands-on. It covers, at a high level:
 - how these feed into **risk assessments** for climate-sensitive outcomes such as
   malaria.
 
+# Survey
+
+Before we get started with the materials, please fill out the pre-survey available at this link: <https://redcap.unimelb.edu.au/surveys/?s=YCTD38YC4NPDX3DP>
+
+![](pre_qr.jpeg){fig-align="center"}
+
+
 # Slides
 
 The presentation slides are provided as a PDF:

@@ -44,6 +44,12 @@ start from the research question, and the first thing to decide is whether clima
 data belongs in the answer at all. The rest of the session is spent in small groups
 planning concrete next steps.
 
+
+Before we get started with the materials, please fill out the survey available at this link: <https://redcap.unimelb.edu.au/surveys/?s=3HWR8NNF93TNKMAL>
+
+![](post_qr.jpeg){fig-align="center"}
+
+
 # Does the question even need climate data?
 
 ::: speaker-note
