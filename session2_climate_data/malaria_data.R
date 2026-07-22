@@ -5,6 +5,7 @@ library(lubridate)
 library(ggplot2)
 library(patchwork)
 library(here)
+library(broom)
 
 # Locate the data
 data_dir <- here::here("data")
