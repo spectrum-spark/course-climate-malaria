@@ -511,7 +511,7 @@ prov_lab <- prov_counts |>
   ) |>
   tibble::deframe()
 
-print(counts_prov_month |>
+counts_prov_month |>
   filter(province_en %in% selected_provinces) |>
   ggplot(aes(month, Count)) +
   geom_line() + geom_point(size = 0.6) +
@@ -519,7 +519,7 @@ print(counts_prov_month |>
              labeller = labeller(province_en = prov_lab)) +
   labs(x = "date", y = "monthly count") +
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1)))
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
 ```
 
 **2.3 Look at the per-province panels. Describe the seasonal pattern you see. Do
